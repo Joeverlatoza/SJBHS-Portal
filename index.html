@@ -6860,11 +6860,12 @@ function cnKey() { return 'attendly_well_' + (DB.auth ? DB.auth.userId : 'x'); }
 function cnResKey() { return 'attendly_well_res_' + (DB.auth ? DB.auth.userId : 'x'); }
 function cnLog() { try { return JSON.parse(localStorage.getItem(cnKey()) || '[]'); } catch (e) { return []; } }
 function cnResults() { try { return JSON.parse(localStorage.getItem(cnResKey()) || '[]'); } catch (e) { return []; } }
-function cnSaveResults(l) { try { localStorage.setItem(cnResKey(), JSON.stringify(l.slice(-60))); } catch (e) {} }
+function cnSaveResults(l) { try { localStorage.setItem(cnResKey(), JSON.stringify(l.slice(-60))); } catch (e) {} cnCloudPush(); }
 function cnDay(t) { const d = new Date(t); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
 function cnAddLog(type, title, min, val) {
   const l = cnLog(); l.push({ t: Date.now(), type, title, min: min || 0, val });
-  try { localStorage.setItem(cnKey(), JSON.stringify(l.slice(-500))); } catch (e) {}
+  try { localStorage.setItem(cnKey(), JSON.stringify(l.slice(-3000))); } catch (e) {}
+  cnCloudPush();
   if (type === 'mood' && !cn._noJ) cnJAdd(val, '', '');
   if (cn.built) { cnRenderPanel('progress'); if (cn.tab === 'home') cnRenderPanel('home'); }
 }
@@ -6878,6 +6879,45 @@ function cnStats() {
   return { total: l.filter(x => x.type !== 'mood').length, minutes: Math.round(l.reduce((a, x) => a + (x.min || 0), 0)), streak, week, breaths: l.filter(x => x.type === 'breath').length, by };
 }
 
+/* ---- progress saved to the account (private table, one row per account) ---- */
+let cnPushT = 0, cnSyncBusy = false;
+async function cnCloudUser() { if (!sb || !navigator.onLine) return null; try { const r = await sb.auth.getSession(); return (r && r.data && r.data.session && r.data.session.user) || null; } catch (e) { return null; } }
+function cnMergeLog(a, b) { const m = new Map(); a.concat(b).forEach(x => { if (x && x.t) m.set(x.t + '|' + x.type + '|' + (x.title || ''), x); }); return Array.from(m.values()).sort((x, y) => x.t - y.t).slice(-3000); }
+function cnMergeRes(a, b) { const m = new Map(); b.concat(a).forEach(x => { if (x && x.id) m.set(x.id, x); }); return Array.from(m.values()).slice(-60); }
+async function cnCloudSync() {
+  if (cnSyncBusy || cnIsT()) return; const u = await cnCloudUser(); if (!u) return; cnSyncBusy = true;
+  try {
+    const r = await sb.from('wellness_progress').select('data').eq('uid', u.id).maybeSingle();
+    if (r.error) { cn.sync = 'off'; return; }
+    const remote = (r.data && r.data.data) || {}, log = cnMergeLog(cnLog(), remote.log || []), res = cnMergeRes(cnResults(), remote.res || []);
+    try { localStorage.setItem(cnKey(), JSON.stringify(log)); localStorage.setItem(cnResKey(), JSON.stringify(res)); } catch (e) {}
+    const w = await sb.from('wellness_progress').upsert({ uid: u.id, data: { log, res }, updated_at: new Date().toISOString() });
+    cn.sync = w.error ? 'off' : 'ok';
+  } catch (e) { cn.sync = 'off'; } finally { cnSyncBusy = false; if (cn.built) cnRenderPanel('progress'); }
+}
+function cnCloudPush() { if (cnIsT()) return; clearTimeout(cnPushT); cnPushT = setTimeout(cnCloudSync, 2500); }
+window.addEventListener('online', () => { try { if (DB.auth && DB.auth.role === 'student') cnCloudSync(); } catch (e) {} });
+
+// Progress over a week (7 days), a month (30 days) or a year (12 months).
+function cnSeries(range) {
+  const l = cnLog(), act = l.filter(e => e.type !== 'mood'), now = new Date(), out = [];
+  const inDay = (k) => act.filter(e => cnDay(e.t) === k);
+  if (range === 'year') {
+    for (let i = 11; i >= 0; i--) {
+      const m = new Date(now.getFullYear(), now.getMonth() - i, 1), y = m.getFullYear(), mo = m.getMonth();
+      const ev = act.filter(e => { const d = new Date(e.t); return d.getFullYear() === y && d.getMonth() === mo; });
+      out.push({ label: m.toLocaleDateString([], { month: 'short' }).slice(0, 3), n: ev.length, min: ev.reduce((a, x) => a + (x.min || 0), 0), days: new Set(ev.map(x => cnDay(x.t))).size });
+    }
+  } else {
+    const len = range === 'month' ? 30 : 7;
+    for (let i = len - 1; i >= 0; i--) {
+      const x = new Date(); x.setDate(x.getDate() - i); const k = cnDay(x.getTime()), ev = inDay(k);
+      const mood = (l.filter(e => cnDay(e.t) === k && e.type === 'mood').pop() || {}).val;
+      out.push({ label: range === 'month' ? (i % 5 === 0 || i === len - 1 ? String(x.getDate()) : '') : x.toLocaleDateString([], { weekday: 'short' }), n: ev.length, min: ev.reduce((a, y) => a + (y.min || 0), 0), days: ev.length ? 1 : 0, mood: range === 'week' ? mood : 0 });
+    }
+  }
+  return { items: out, total: out.reduce((a, x) => a + x.n, 0), minutes: Math.round(out.reduce((a, x) => a + x.min, 0)), days: out.reduce((a, x) => a + x.days, 0) };
+}
 /* ---- server calls (private table, access enforced by row level security) ---- */
 async function cnSession() {
   if (!sb) { toast('You need internet to do this.', 'warning'); return null; }
@@ -7043,15 +7083,16 @@ const CN_DYNAMIC = ['home', 'explore', 'surveys', 'talk', 'book', 'help', 'journ
 function renderCounseling() {
   const root = document.getElementById('cn-root'); if (!root) return;
   if (!cn.built || cn.uid !== (DB.auth && DB.auth.userId)) {
-    cn.bp = null; cnStopBreath(); cnStopCalm(); cnAmbStop(true); cnScanStop(); spReset(true); cn.helpView = 'main'; cn.uid = DB.auth && DB.auth.userId; cn.built = true; cn.tab = 'home'; cn.items = []; cn.loaded = false; cn.sv = null; cn.page = null; cn.editUser = false;
+    cn.bp = null; cnStopBreath(); cnStopCalm(); cnAmbStop(true); cnScanStop(); spReset(true); cn.helpView = 'main'; cn.sync = ''; cn.uid = DB.auth && DB.auth.userId; cn.built = true; cn.tab = 'home'; cn.items = []; cn.loaded = false; cn.sv = null; cn.page = null; cn.editUser = false;
     cn.book = { step: 1, type: '', format: 'person', date: '', time: '', topic: cnTopics()[0], note: '', sent: false, busy: false };
-    root.innerHTML = '<div class="space-y-4">' +
+    root.innerHTML = '<div class="space-y-4">' + CN_CREDIT +
       '<div class="flex items-center gap-2"><div id="cn-tabs" class="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 flex-1">' + CN_TABS.map(t => '<button data-cn-tab="' + t[0] + '" class="cn-tab shrink-0 inline-flex items-center gap-1.5 text-xs font-medium rounded-full border px-3 py-1.5"><i data-lucide="' + t[2] + '" class="w-3.5 h-3.5"></i>' + t[1] + '</button>').join('') + '</div>' +
       '<button data-cn-calm class="shrink-0 inline-flex items-center gap-1.5 text-xs font-semibold rounded-full bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 px-3 py-1.5"><i data-lucide="life-buoy" class="w-3.5 h-3.5"></i>Quick calm</button></div>' +
       '<div id="cn-user"></div>' +
       '<p class="text-[11px] text-slate-500 dark:text-slate-400">In danger or need urgent help? Call <a href="tel:911" class="font-semibold underline">911</a> or the NCMH crisis line <a href="tel:1553" class="font-semibold underline">1553</a>.</p>' +
       CN_TABS.map(t => '<div id="cn-p-' + t[0] + '" data-cn-panel="' + t[0] + '" class="hidden"></div>').join('') + '</div>';
     cnBuildStatic();
+    cnCloudSync();
   }
   cnRenderUser();
   cnShowTab(cn.tab, true);
@@ -7994,16 +8035,27 @@ document.addEventListener('input', ev => {
 });
 
 /* ---- Progress and my results (this device only) ---- */
+function cnProgressRange() {
+  const r = cn.pr || 'week', sr = cnSeries(r), moodE = { 1: '😣', 2: '😕', 3: '😐', 4: '🙂', 5: '😄' }, max = Math.max(1, ...sr.items.map(d => d.n));
+  const names = { week: 'This week', month: 'This month', year: 'This year' }, small = r === 'month';
+  const tabs = ['week', 'month', 'year'].map(k => '<button type="button" data-cn-pr="' + k + '" class="flex-1 text-xs font-medium rounded-md px-2 py-1.5 ' + (k === r ? 'bg-white dark:bg-slate-700 shadow text-teal-700 dark:text-teal-300' : 'text-slate-500 dark:text-slate-400') + '">' + { week: 'Week', month: 'Month', year: 'Year' }[k] + '</button>').join('');
+  const sum = (v, l) => '<div class="rounded-lg bg-slate-50 dark:bg-slate-800/60 px-3 py-2 text-center"><p class="text-base font-semibold tabular-nums">' + v + '</p><p class="text-[10px] text-slate-500 dark:text-slate-400">' + l + '</p></div>';
+  return '<div class="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 mb-3" role="tablist" aria-label="Progress range">' + tabs + '</div>' +
+    '<p class="text-xs font-medium mb-2">' + names[r] + '</p>' +
+    '<div class="grid grid-cols-3 gap-2 mb-3">' + sum(sr.total, 'activities') + sum(sr.minutes, 'calm minutes') + sum(sr.days, r === 'year' ? 'active days' : 'active days') + '</div>' +
+    '<div class="flex items-end ' + (small ? 'gap-0.5' : 'gap-2') + ' h-24 mb-1">' + sr.items.map(d => '<div class="flex-1 flex flex-col items-center justify-end gap-1 h-full" title="' + d.n + ' activities">' + (r === 'week' ? '<span class="text-xs">' + (d.mood ? moodE[d.mood] : '') + '</span>' : '') + '<div class="w-full rounded-t bg-teal-500/80" style="height:' + Math.max(d.n ? 6 : 2, Math.round(d.n / max * 60)) + 'px"></div></div>').join('') + '</div>' +
+    '<div class="flex ' + (small ? 'gap-0.5' : 'gap-2') + ' mb-4">' + sr.items.map(d => '<span class="flex-1 text-center text-[10px] text-slate-400">' + d.label + '</span>').join('') + '</div>';
+}
+const CN_CREDIT = '<div class="rounded-xl border border-teal-200 dark:border-teal-900 bg-teal-50/70 dark:bg-teal-950/30 px-4 py-2.5 text-center"><p class="text-[11px] uppercase tracking-widest text-teal-700 dark:text-teal-300">Made by Group 1</p><p class="text-sm font-semibold">Gregorio Rivera et al.</p></div>';
 function cnPanelProgress() {
   const s = cnStats(), max = Math.max(1, ...s.week.map(d => d.n)), moodE = { 1: '😣', 2: '😕', 3: '😐', 4: '🙂', 5: '😄' };
   const badges = [['First step', s.total >= 1, 'Did your first activity'], ['Calm breather', s.breaths >= 5, '5 breathing sessions'], ['3-day streak', s.streak >= 3, '3 days in a row'], ['Steady', s.total >= 14, '14 activities']];
   const box = (l, v, sub) => '<div class="rounded-lg border border-slate-200 dark:border-slate-800 p-3"><p class="text-[11px] text-slate-500 dark:text-slate-400">' + l + '</p><p class="text-xl font-semibold tabular-nums">' + v + '</p><p class="text-[10px] text-slate-400">' + sub + '</p></div>';
   const kinds = [['breath', 'Breathing'], ['music', 'Music'], ['survey', 'Surveys'], ['calm', 'Quick calm'], ['practice', 'Practices']];
   const res = cnResults().slice().reverse();
-  return '<div class="' + CN_CARD + '"><h3 class="text-sm font-semibold">My progress</h3><p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Saved only on this device. Nobody else can see it.</p>' +
+  return '<div class="' + CN_CARD + '"><h3 class="text-sm font-semibold">My progress</h3><p class="text-[11px] text-teal-700 dark:text-teal-300 mb-1">Made by Group 1 · Gregorio Rivera et al.</p><p class="text-xs text-slate-500 dark:text-slate-400 mb-3">' + (cn.sync === 'ok' ? 'Saved to your account, so you get it on any device you log in on. Nobody else can see it.' : 'Saved on this device. It will also save to your account when you are online. Nobody else can see it.') + '</p>' +
     '<div class="grid grid-cols-3 gap-2 mb-4">' + box('Activities', s.total, 'all time') + box('Calm minutes', s.minutes, 'breathing and calm') + box('Day streak', s.streak, 'in a row') + '</div>' +
-    '<p class="text-xs font-medium mb-2">This week</p><div class="flex items-end gap-2 h-24 mb-1">' + s.week.map(d => '<div class="flex-1 flex flex-col items-center justify-end gap-1 h-full"><span class="text-xs">' + (d.mood ? moodE[d.mood] : '') + '</span><div class="w-full rounded-t bg-teal-500/80" style="height:' + Math.max(d.n ? 8 : 2, Math.round(d.n / max * 60)) + 'px"></div></div>').join('') + '</div>' +
-    '<div class="flex gap-2 mb-4">' + s.week.map(d => '<span class="flex-1 text-center text-[10px] text-slate-400">' + d.label + '</span>').join('') + '</div>' +
+    cnProgressRange() +
     '<p class="text-xs font-medium mb-2">What you did</p><div class="space-y-1 mb-4">' + kinds.map(k => '<div class="flex items-center gap-2 text-xs"><span class="w-20 text-slate-500 dark:text-slate-400">' + k[1] + '</span><div class="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div class="h-full bg-teal-500" style="width:' + Math.round(((s.by[k[0]] || 0) + (k[0] === 'survey' ? (s.by.checkin || 0) : 0)) / Math.max(1, s.total) * 100) + '%"></div></div><span class="w-6 text-right tabular-nums">' + ((s.by[k[0]] || 0) + (k[0] === 'survey' ? (s.by.checkin || 0) : 0)) + '</span></div>').join('') + '</div>' +
     '<div class="grid grid-cols-2 gap-2">' + badges.map(b => '<div class="rounded-lg border px-3 py-2 ' + (b[1] ? 'border-teal-300 dark:border-teal-800 bg-teal-50 dark:bg-teal-950/30' : 'border-slate-200 dark:border-slate-800 opacity-60') + '"><p class="text-xs font-semibold">' + b[0] + '</p><p class="text-[10px] text-slate-500 dark:text-slate-400">' + b[2] + '</p></div>').join('') + '</div></div>' +
     '<div class="' + CN_CARD + ' mt-4"><h3 class="text-sm font-semibold">My survey results</h3><p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Download any result as an Excel file filled in with your details, or copy your plan.</p>' +
@@ -8196,6 +8248,7 @@ function inboxCard(t, me, openId, which) {
 document.addEventListener('click', async ev => {
   const g = sel => ev.target.closest(sel);
   let el;
+  if ((el = g('[data-cn-pr]'))) { cn.pr = el.dataset.cnPr; cnRenderPanel('progress'); return; }
   if ((el = g('[data-cn-tab]'))) { cnShowTab(el.dataset.cnTab); window.scrollTo(0, 0); return; }
   if ((el = g('[data-cn-go]'))) { cnGo(el.dataset.cnGo); return; }
   if (g('[data-cn-calm]')) { cnStartCalm(); return; }
