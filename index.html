@@ -662,7 +662,7 @@ html[data-calm="1"] *{animation-duration:.001ms!important;animation-iteration-co
         </div>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
           <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
-            <h2 class="text-sm font-semibold mb-3">Teacher directory</h2>
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-3"><h2 class="text-sm font-semibold">Teacher directory</h2><button type="button" id="adm-add-teacher" class="inline-flex items-center gap-1.5 text-xs font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-3 py-1.5"><i data-lucide="user-plus" class="w-3.5 h-3.5"></i>Add teacher</button></div>
             <div class="overflow-x-auto">
               <table class="w-full text-sm">
                 <thead>
@@ -1295,6 +1295,45 @@ html[data-calm="1"] *{animation-duration:.001ms!important;animation-iteration-co
 </div>
 
 <!-- EDIT TEACHER MODAL -->
+<div id="modal-add-teacher" class="hidden fixed inset-0 z-40 bg-slate-950/40 flex items-center justify-center p-4">
+  <form id="add-teacher-form" class="bg-white dark:bg-slate-900 rounded-xl shadow-xl w-full max-w-sm p-5 space-y-3">
+    <h3 class="text-sm font-semibold">Add teacher</h3>
+    <div class="flex items-center gap-3">
+      <img id="add-teacher-photo-preview" class="w-16 h-16 rounded-full object-cover bg-slate-100 dark:bg-slate-800 shrink-0" src="" alt="">
+      <div class="min-w-0 flex-1">
+        <label class="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1" for="add-teacher-photo">Profile picture (optional)</label>
+        <input id="add-teacher-photo" type="file" accept="image/*" class="w-full text-xs">
+      </div>
+    </div>
+    <div><label class="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1" for="add-teacher-name">Full name</label>
+      <input id="add-teacher-name" type="text" required class="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm px-3 py-2"></div>
+    <div><label class="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1" for="add-teacher-email">Email (optional, DepEd or Gmail)</label>
+      <input id="add-teacher-email" type="email" placeholder="name@deped.gov.ph or name@gmail.com" class="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm px-3 py-2"></div>
+    <label class="flex items-center gap-2 text-sm"><input id="add-teacher-sub" type="checkbox" class="rounded"> This is a substitute teacher</label>
+    <p class="text-[11px] text-slate-500 dark:text-slate-400">If they have an email, they can sign up with it later and their profile is attached to the new account.</p>
+    <div class="flex gap-2 justify-end">
+      <button type="button" data-close-modal="modal-add-teacher" class="text-sm font-medium border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
+      <button type="submit" class="text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-3 py-2">Add teacher</button>
+    </div>
+  </form>
+</div>
+<div id="modal-cover" class="hidden fixed inset-0 z-40 bg-slate-950/40 flex items-center justify-center p-4">
+  <form id="cover-form" class="bg-white dark:bg-slate-900 rounded-xl shadow-xl w-full max-w-sm p-5 space-y-3">
+    <h3 class="text-sm font-semibold">Leave and substitutes</h3>
+    <p class="text-xs text-slate-500 dark:text-slate-400" id="cover-name"></p>
+    <label class="flex items-center gap-2 text-sm"><input id="cover-sub" type="checkbox" class="rounded"> This is a substitute teacher</label>
+    <label class="flex items-center gap-2 text-sm"><input id="cover-leave" type="checkbox" class="rounded"> On leave</label>
+    <div id="cover-subs-wrap" class="hidden">
+      <p class="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Substitutes covering this teacher</p>
+      <div id="cover-subs" class="max-h-56 overflow-y-auto space-y-1 rounded-lg border border-slate-200 dark:border-slate-800 p-2"></div>
+      <p id="cover-note" class="text-[11px] text-slate-500 dark:text-slate-400 mt-1"></p>
+    </div>
+    <div class="flex gap-2 justify-end">
+      <button type="button" data-close-modal="modal-cover" class="text-sm font-medium border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
+      <button type="submit" class="text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-3 py-2">Save</button>
+    </div>
+  </form>
+</div>
 <div id="modal-edit-teacher" class="hidden fixed inset-0 z-40 bg-slate-950/40 flex items-center justify-center p-4">
   <form id="edit-teacher-form" class="bg-white dark:bg-slate-900 rounded-xl shadow-xl w-full max-w-sm p-5 space-y-3">
     <h3 class="text-sm font-semibold">Edit teacher</h3>
@@ -8679,13 +8718,14 @@ function renderAdminView() {
   const adGhosts = adPeople().filter(p => !p.accountId);
   document.getElementById('admin-teachers-empty').classList.toggle('hidden', DB.teachers.length > 0 || adGhosts.length > 0);
   const EDIT_BTN = id => '<button data-adm-edit-teacher="' + id + '" title="Edit email" aria-label="Edit email" class="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-indigo-600 dark:text-indigo-400"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button>';
+  const COVER_BTN = ref => '<button data-adm-cover="' + ref + '" title="Leave and substitutes" aria-label="Leave and substitutes" class="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-amber-600 dark:text-amber-400"><i data-lucide="user-round-check" class="w-3.5 h-3.5"></i></button>';
   const DEL_BTN = (attr, id, title) => '<button ' + attr + '="' + id + '" title="' + title + '" aria-label="' + title + '" class="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-rose-500"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>';
-  tBody.innerHTML = DB.teachers.map(t => '<tr><td class="py-2.5 pr-2 align-top"><div class="flex items-start gap-2.5"><img src="' + (t.photo || initialsAvatar(t.name)) + '" class="w-9 h-9 rounded-full object-cover bg-slate-100 dark:bg-slate-800 shrink-0" alt=""><div class="min-w-0"><div class="font-medium">' + escapeHtml(t.name) + '</div><div class="text-xs text-slate-500 dark:text-slate-400 break-all">' + escapeHtml(t.email || '—') + '</div></div></div></td>' +
+  tBody.innerHTML = DB.teachers.map(t => '<tr><td class="py-2.5 pr-2 align-top"><div class="flex items-start gap-2.5"><img src="' + (t.photo || initialsAvatar(t.name)) + '" class="w-9 h-9 rounded-full object-cover bg-slate-100 dark:bg-slate-800 shrink-0" alt=""><div class="min-w-0"><div class="font-medium">' + escapeHtml(t.name) + '</div><div class="text-xs text-slate-500 dark:text-slate-400 break-all">' + escapeHtml(t.email || '—') + '</div>' + admBadges(t) + '</div></div></td>' +
     '<td class="py-2.5 text-slate-500 dark:text-slate-400 hidden sm:table-cell">' + escapeHtml(t.teacherId || '—') + '</td><td class="py-2.5 text-slate-500 dark:text-slate-400 hidden sm:table-cell">' + escapeHtml(classLabel(t.advisoryClassId) || '—') + '</td>' +
-    '<td class="py-2.5 text-right whitespace-nowrap align-top">' + EDIT_BTN(t.id) + DEL_BTN('data-adm-del-teacher', t.id, 'Delete teacher') + '</td></tr>').join('') +
-    adGhosts.slice().sort(adByName).map(p => '<tr><td class="py-2.5 pr-2 align-top"><div class="flex items-start gap-2.5"><img src="' + (p.photo || initialsAvatar(p.name)) + '" class="w-9 h-9 rounded-full object-cover bg-slate-100 dark:bg-slate-800 shrink-0" alt=""><div class="min-w-0"><div class="font-medium">' + escapeHtml(p.name) + '</div><div class="text-xs text-slate-500 dark:text-slate-400 break-all">' + escapeHtml(p.email || 'No email yet') + '</div><span class="inline-block mt-1 text-[11px] font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">No account yet · schedule ready</span></div></div></td>' +
+    '<td class="py-2.5 text-right whitespace-nowrap align-top">' + COVER_BTN(t.id) + EDIT_BTN(t.id) + DEL_BTN('data-adm-del-teacher', t.id, 'Delete teacher') + '</td></tr>').join('') +
+    adGhosts.slice().sort(adByName).map(p => '<tr><td class="py-2.5 pr-2 align-top"><div class="flex items-start gap-2.5"><img src="' + (p.photo || initialsAvatar(p.name)) + '" class="w-9 h-9 rounded-full object-cover bg-slate-100 dark:bg-slate-800 shrink-0" alt=""><div class="min-w-0"><div class="font-medium">' + escapeHtml(p.name) + '</div><div class="text-xs text-slate-500 dark:text-slate-400 break-all">' + escapeHtml(p.email || 'No email yet') + '</div><span class="inline-block mt-1 text-[11px] font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">No account yet · schedule ready</span>' + admBadges(p) + '</div></div></td>' +
     '<td class="py-2.5 text-slate-500 dark:text-slate-400 hidden sm:table-cell">—</td><td class="py-2.5 text-slate-500 dark:text-slate-400 hidden sm:table-cell">' + escapeHtml(classLabel(p.advisoryClassId) || '—') + '</td>' +
-    '<td class="py-2.5 text-right whitespace-nowrap align-top">' + EDIT_BTN('g:' + p.id) + DEL_BTN('data-adm-del-ghost', p.id, 'Remove from school list') + '</td></tr>').join('');
+    '<td class="py-2.5 text-right whitespace-nowrap align-top">' + COVER_BTN('g:' + p.id) + EDIT_BTN('g:' + p.id) + DEL_BTN('data-adm-del-ghost', p.id, 'Remove from school list') + '</td></tr>').join('');
 
   renderStudentDirectory();
 
@@ -9239,6 +9279,83 @@ document.getElementById('edit-teacher-form').addEventListener('submit', e => {
   });
 });
 
+/* ---- admin: leave, substitutes, sub flag, and adding a teacher profile ---- */
+// Flags live on the teacher record (or the school-list record when there is no account yet):
+// isSub (true for a substitute), onLeave (true when away), subs (name keys of the substitutes covering them).
+function admRecRef(ref) { return ref && ref.indexOf('g:') === 0 ? adPeople().find(r => r.id === ref.slice(2) && !r.accountId) : DB.teachers.find(x => x.id === ref); }
+function admBadges(rec) {
+  const cover = (rec.subs || []).map(k => { const x = adAllTeachers().find(y => nameKey(y.name) === k); return x ? x.name : ''; }).filter(Boolean);
+  let h = '';
+  if (rec.isSub) h += '<span class="inline-block mt-1 mr-1 text-[11px] px-2 py-0.5 rounded-full bg-teal-100 dark:bg-teal-950/50 text-teal-800 dark:text-teal-200">Substitute</span>';
+  if (rec.onLeave) h += '<span class="inline-block mt-1 mr-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-200">On leave</span>' + (cover.length ? '<div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Covered by ' + escapeHtml(cover.join(', ')) + '</div>' : '<div class="text-[11px] text-rose-600 dark:text-rose-400 mt-0.5">No substitute assigned</div>');
+  return h;
+}
+let coverRef = null;
+document.addEventListener('click', ev => {
+  const b = ev.target.closest('[data-adm-cover]'); if (!b) return;
+  if (!DB.auth || DB.auth.role !== 'admin') return;
+  const rec = admRecRef(b.dataset.admCover); if (!rec) return;
+  coverRef = b.dataset.admCover;
+  document.getElementById('cover-name').textContent = rec.name || '';
+  document.getElementById('cover-sub').checked = !!rec.isSub;
+  document.getElementById('cover-leave').checked = !!rec.onLeave;
+  const me = nameKey(rec.name);
+  const cands = adAllTeachers().filter(x => x !== rec && nameKey(x.name) !== me).sort((a, c) => (c.isSub ? 1 : 0) - (a.isSub ? 1 : 0) || adByName(a, c));
+  const chosen = rec.subs || [];
+  document.getElementById('cover-subs').innerHTML = cands.length ? cands.map(x => '<label class="flex items-center gap-2 text-sm py-1 px-1 rounded hover:bg-slate-50 dark:hover:bg-slate-800"><input type="checkbox" class="rounded cover-pick" value="' + escapeHtml(nameKey(x.name)) + '"' + (chosen.includes(nameKey(x.name)) ? ' checked' : '') + '><span class="flex-1 min-w-0 truncate">' + escapeHtml(x.name || 'Unnamed') + '</span>' + (x.isSub ? '<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-teal-100 dark:bg-teal-950/50 text-teal-800 dark:text-teal-200">Sub</span>' : '') + '</label>').join('') : '<p class="text-xs text-slate-500 dark:text-slate-400 p-2">No other teachers yet. Add a teacher first.</p>';
+  document.getElementById('cover-note').textContent = 'Tick one or more substitutes. Teachers marked as substitutes are listed first.';
+  const sync = () => document.getElementById('cover-subs-wrap').classList.toggle('hidden', !document.getElementById('cover-leave').checked);
+  document.getElementById('cover-leave').onchange = sync; sync();
+  openModal('modal-cover');
+});
+document.getElementById('cover-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const rec = coverRef && admRecRef(coverRef); if (!rec || !DB.auth || DB.auth.role !== 'admin') return;
+  const onLeave = document.getElementById('cover-leave').checked;
+  rec.isSub = document.getElementById('cover-sub').checked;
+  rec.onLeave = onLeave;
+  rec.subs = onLeave ? Array.from(document.querySelectorAll('#cover-subs .cover-pick:checked')).map(x => x.value) : [];
+  if (onLeave && !rec.subs.length) toast(rec.name + ' is on leave with no substitute yet.', 'warning');
+  saveDB(); closeModal('modal-cover'); coverRef = null; renderAdminView();
+  toast('Saved.', 'success');
+});
+
+let addTeacherPhoto = '';
+document.getElementById('adm-add-teacher').addEventListener('click', () => {
+  if (!DB.auth || DB.auth.role !== 'admin') return;
+  document.getElementById('add-teacher-name').value = ''; document.getElementById('add-teacher-email').value = '';
+  document.getElementById('add-teacher-sub').checked = false; document.getElementById('add-teacher-photo').value = '';
+  addTeacherPhoto = ''; document.getElementById('add-teacher-photo-preview').src = initialsAvatar('?');
+  openModal('modal-add-teacher'); document.getElementById('add-teacher-name').focus();
+});
+document.getElementById('add-teacher-photo').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  imageFileToDataUrl(f, 320, url => {
+    if (!url) { toast('That photo could not be read. Try a different image.', 'error'); return; }
+    addTeacherPhoto = url; document.getElementById('add-teacher-photo-preview').src = url;
+  });
+});
+document.getElementById('add-teacher-name').addEventListener('input', e => {
+  if (!addTeacherPhoto) document.getElementById('add-teacher-photo-preview').src = initialsAvatar(e.target.value.trim() || '?');
+});
+document.getElementById('add-teacher-form').addEventListener('submit', e => {
+  e.preventDefault();
+  if (!DB.auth || DB.auth.role !== 'admin') return;
+  const name = document.getElementById('add-teacher-name').value.trim();
+  const email = normEmail(document.getElementById('add-teacher-email').value);
+  const isSub = document.getElementById('add-teacher-sub').checked;
+  if (!name) { toast('Enter the teacher\'s name.', 'warning'); return; }
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast('Enter a valid email address.', 'warning'); return; }
+  if (email && (DB.teachers.some(x => normEmail(x.email) === email) || adPeople().some(r => normEmail(r.email) === email))) { toast('That email is already used by another teacher.', 'warning'); return; }
+  if (adAllTeachers().some(x => nameKey(x.name) === nameKey(name))) { toast('A teacher with that name is already listed.', 'warning'); return; }
+  const rec = { id: uid('pp'), key: nameKey(name), name, email, advisoryClassId: '', schedule: [], accountId: '', ghost: true, photo: addTeacherPhoto, isSub, onLeave: false, subs: [] };
+  adProg().people.push(rec);
+  const acct = email ? DB.teachers.find(x => normEmail(x.email) === email) : null;
+  if (acct) adAutoLink(acct);
+  saveDB(); closeModal('modal-add-teacher'); renderAdminView();
+  toast(name + ' added' + (isSub ? ' as a substitute' : '') + '.', 'success');
+});
+
 function removeAllStudents() {
   const ids = new Set(DB.students.map(x => x.id));
   ids.forEach(markRemoved);
@@ -9552,6 +9669,7 @@ function adLinkRec(rec, t) {
   (rec.schedule || []).forEach(e => { if (!t.schedule.some(x => x.id === e.id)) t.schedule.push(e); ensurePortalSubject(e.subject, t.id); });
   if ((rec.email && normEmail(rec.email) === normEmail(t.email)) || (rec.name && !/\s/.test((t.name || '').trim()))) { if (rec.name) t.name = rec.name; }
   rec.schedule = []; rec.accountId = t.id;
+  if (rec.isSub) t.isSub = true; if (rec.onLeave) t.onLeave = true; t.subs = Array.from(new Set((t.subs || []).concat(rec.subs || [])));
   if (rec.photo && !t.photo) t.photo = rec.photo;
   if (rec.advisoryClassId && !t.advisoryClassId) t.advisoryClassId = rec.advisoryClassId;
 }
@@ -9565,7 +9683,7 @@ function adAutoLink(t) {
 }
 function adUnlink(t) {
   const rec = adPeople().find(r => r.accountId === t.id); if (!rec) return;
-  rec.accountId = ''; rec.schedule = (t.schedule || []).filter(e => e.src === 'admin');
+  rec.accountId = ''; rec.schedule = (t.schedule || []).filter(e => e.src === 'admin'); rec.isSub = !!t.isSub; rec.onLeave = !!t.onLeave; rec.subs = (t.subs || []).slice();
   if (t.advisoryClassId) rec.advisoryClassId = t.advisoryClassId;
 }
 // The General Class Program is the authority: a teacher's classes, sections and times are taken from it, so teachers and students see the same thing.
