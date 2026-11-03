@@ -6930,7 +6930,7 @@ async function cnSession() {
   if (!u) { toast('Please log out and sign in again to use messages.', 'warning'); return null; }
   return u;
 }
-function cnErrText(e) { return /relation|does not exist|schema cache|not find the table/i.test(e && e.message || '') ? 'Counseling is not set up on the server yet. Ask your admin to run the counseling SQL file.' : ((e && e.message) || 'Something went wrong.'); }
+function cnErrText(e) { const m = (e && e.message) || ''; if (/permission denied/i.test(m)) return 'Counseling needs one more setup step on the server. Ask your admin to run counseling_fix.sql in Supabase (SQL Editor), then reload.'; return /relation|does not exist|schema cache|not find the table/i.test(e && e.message || '') ? 'Counseling is not set up on the server yet. Ask your admin to run the counseling SQL file.' : ((e && e.message) || 'Something went wrong.'); }
 async function cnSend(row) {
   const u = await cnSession(); if (!u) return null;
   const me = cnAcct() || {};
@@ -7091,12 +7091,12 @@ function renderCounseling() {
   if (!cn.built || cn.uid !== (DB.auth && DB.auth.userId)) {
     cn.bp = null; cnStopBreath(); cnStopCalm(); cnAmbStop(true); cnScanStop(); spReset(true); cn.helpView = 'main'; cn.sync = ''; cn.uid = DB.auth && DB.auth.userId; cn.built = true; cn.tab = 'home'; cn.items = []; cn.loaded = false; cn.sv = null; cn.page = null; cn.editUser = false;
     cn.book = { step: 1, type: '', format: 'person', date: '', time: '', topic: cnTopics()[0], note: '', sent: false, busy: false };
-    root.innerHTML = '<div class="space-y-4">' + CN_CREDIT +
+    root.innerHTML = '<div class="space-y-4">' +
       '<div class="flex items-center gap-2"><div id="cn-tabs" class="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 flex-1">' + CN_TABS.map(t => '<button data-cn-tab="' + t[0] + '" class="cn-tab shrink-0 inline-flex items-center gap-1.5 text-xs font-medium rounded-full border px-3 py-1.5"><i data-lucide="' + t[2] + '" class="w-3.5 h-3.5"></i>' + t[1] + '</button>').join('') + '</div>' +
       '<button data-cn-calm class="shrink-0 inline-flex items-center gap-1.5 text-xs font-semibold rounded-full bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 px-3 py-1.5"><i data-lucide="life-buoy" class="w-3.5 h-3.5"></i>Quick calm</button></div>' +
       '<div id="cn-user"></div>' +
       '<p class="text-[11px] text-slate-500 dark:text-slate-400">In danger or need urgent help? Call the Arayat Municipal Emergency Hotline: <a href="tel:09995985450" class="font-semibold underline">PNP 0999-598-5450</a> or <a href="tel:09229062071" class="font-semibold underline">MDRRMO 0922-906-2071</a>.</p>' +
-      CN_TABS.map(t => '<div id="cn-p-' + t[0] + '" data-cn-panel="' + t[0] + '" class="hidden"></div>').join('') + '</div>';
+      CN_TABS.map(t => '<div id="cn-p-' + t[0] + '" data-cn-panel="' + t[0] + '" class="hidden"></div>').join('') + CN_CREDIT + '</div>';
     cnBuildStatic();
     cnCloudSync();
   }
@@ -7438,8 +7438,8 @@ function mcRender() {
   if (cn.err) h = head('Chat') + '<div class="p-4 text-xs text-rose-600">' + escapeHtml(cn.err) + '</div>';
   else if (mc.view === 'new') {
     const T = cnIsT(), r = T ? null : cnRecipients(), opt = (t, tag) => '<option value="' + escapeHtml(normEmail(t.email)) + '">' + escapeHtml((t.name || t.email) + (tag ? ' (' + tag + ')' : '')) + '</option>';
-    const sel = T ? cnTSelect('mc-to') : '<select id="mc-to" class="' + CN_INP + '">' + r.first.map(o => opt(o[1], o[0])).join('') + (r.rest.length ? '<optgroup label="Teachers">' + r.rest.map(t => opt(t)).join('') + '</optgroup>' : '') + '</select>';
-    const none = T ? !cnTRecipients().length : !(r.first.length || r.rest.length);
+    const sel = cnTSelect('mc-to');
+    const none = !cnTRecipients().length;
     h = head('New message', true) + (none ? '<p class="p-4 text-xs text-slate-500 dark:text-slate-400">Your school has not set up a counselor yet. Ask the admin to add one.</p>' :
       '<div class="p-3 space-y-2 overflow-y-auto"><label class="block text-xs font-medium" for="mc-to">To</label>' + sel + '<label class="block text-xs font-medium" for="mc-body">Message</label><textarea id="mc-body" rows="5" maxlength="1000" placeholder="Write what you want them to know..." class="' + CN_INP + '"></textarea><p class="text-[11px] text-slate-500 dark:text-slate-400">Only you and the person you choose can read it.</p><button data-mc-send class="' + CN_BTN + ' w-full">Send message</button></div>');
   } else if (mc.view === 'thread') {
@@ -7487,11 +7487,11 @@ document.addEventListener('click', async ev => {
     if (!to) { toast('Choose who to send it to.', 'warning'); return; }
     if (!body) { toast('Write a message first.', 'warning'); return; }
     if (mc.busy) return;
-    const T = cnIsT(), trc = T ? cnTRecipients().find(x => x.key === to) : null;
-    if (T && !trc) { toast('Choose the counselor or the principal.', 'warning'); return; }
-    const t = T ? trc.p : DB.teachers.find(x => normEmail(x.email) === to), me = cnAcct() || {};
+    const T = cnIsT(), trc = cnTRecipients().find(x => x.key === to);
+    if (!trc) { toast('Choose the counselor or the principal.', 'warning'); return; }
+    const t = trc.p, me = cnAcct() || {};
     mc.busy = true;
-    const r = await cnSend({ kind: 'message', to_email: T ? normEmail(t.email) : to, to_name: t ? t.name : '', subject: T ? 'Message from a teacher' : 'Message from a student', body, meta: T ? { cls: 'Teacher' } : { cls: classLabel(me.classId), username: cnUsername() } });
+    const r = await cnSend({ kind: 'message', to_email: normEmail(t.email), to_name: t ? t.name : '', subject: T ? 'Message from a teacher' : 'Message from a student', body, meta: T ? { cls: 'Teacher' } : { cls: classLabel(me.classId), username: cnUsername() } });
     mc.busy = false;
     if (r) { toast('Message sent.', 'success'); mc.thread = r.id; mc.view = 'thread'; mcRender(); if (cn.tab === 'talk') cnRenderConvos(); }
   }
@@ -8053,6 +8053,7 @@ function cnProgressRange() {
     '<div class="flex ' + (small ? 'gap-0.5' : 'gap-2') + ' mb-4">' + sr.items.map(d => '<span class="flex-1 text-center text-[10px] text-slate-400">' + d.label + '</span>').join('') + '</div>';
 }
 const CN_CREDIT = '<div class="rounded-xl border border-teal-200 dark:border-teal-900 bg-teal-50/70 dark:bg-teal-950/30 px-4 py-2.5 text-center"><p class="text-[11px] uppercase tracking-widest text-teal-700 dark:text-teal-300">Made by Group 1</p><p class="text-sm font-semibold">Gregorio Rivera et al.</p></div>';
+try { document.querySelectorAll('section[data-view=guidance],section[data-view=admin-counsel]').forEach(sec => sec.insertAdjacentHTML('beforeend', '<div class="mt-6">' + CN_CREDIT + '</div>')); } catch (e) {}
 function cnPanelProgress() {
   const s = cnStats(), max = Math.max(1, ...s.week.map(d => d.n)), moodE = { 1: '😣', 2: '😕', 3: '😐', 4: '🙂', 5: '😄' };
   const badges = [['First step', s.total >= 1, 'Did your first activity'], ['Calm breather', s.breaths >= 5, '5 breathing sessions'], ['3-day streak', s.streak >= 3, '3 days in a row'], ['Steady', s.total >= 14, '14 activities']];
@@ -8088,9 +8089,8 @@ function cnPanelTalkT() {
 }
 function cnPanelTalk() {
   if (cnIsT()) return cnPanelTalkT();
-  const r = cnRecipients(), opt = (t, tag) => '<option value="' + escapeHtml(normEmail(t.email)) + '">' + escapeHtml((t.name || t.email) + (tag ? ' (' + tag + ')' : '')) + '</option>';
   return '<div class="' + CN_CARD + '"><h3 class="text-sm font-semibold">Send a message</h3><p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Only you and the person you choose can read it. If your safety is at risk, they may need to involve other adults to keep you safe.</p>' +
-    '<label class="block text-xs font-medium mb-1">To</label><select id="cn-m-to" class="' + CN_INP + ' mb-3">' + r.first.map(o => opt(o[1], o[0])).join('') + (r.rest.length ? '<optgroup label="Teachers at San Juan Baño High School">' + r.rest.map(t => opt(t)).join('') + '</optgroup>' : '') + '</select>' +
+    '<label class="block text-xs font-medium mb-1" for="cn-m-to">Send to</label><div class="mb-3">' + cnTSelect('cn-m-to') + '</div>' +
     '<label class="block text-xs font-medium mb-1">Message</label><textarea id="cn-m-body" rows="4" maxlength="1000" placeholder="Write what you want them to know..." class="' + CN_INP + '"></textarea>' +
     '<div class="mt-3"><button data-cn-sendmsg class="' + CN_BTN + '">Send message</button></div></div>' +
     '<div class="' + CN_CARD + ' mt-4"><div class="flex items-center justify-between mb-3"><h3 class="text-sm font-semibold">My conversations</h3><button data-cn-refresh class="text-xs text-teal-700 dark:text-teal-400 hover:underline">Refresh</button></div><div id="cn-convos"></div></div>';
@@ -8285,8 +8285,8 @@ document.addEventListener('click', async ev => {
     const T = cnIsT(), trc = T ? cnTRecipients().find(x => x.key === to) : null;
     if (T && !trc) { toast('Choose the counselor or the principal.', 'warning'); return; }
     if (!body) { toast('Write a message first.', 'warning'); return; }
-    const t = T ? trc.p : DB.teachers.find(x => normEmail(x.email) === to), me = cnAcct() || {};
-    const r = await cnSend({ kind: 'message', to_email: T ? normEmail(t.email) : to, to_name: t ? t.name : '', subject: T ? 'Message from a teacher' : 'Message from a student', body, meta: T ? { cls: 'Teacher' } : { cls: classLabel(me.classId), username: cnUsername() } });
+    const t = trc.p, me = cnAcct() || {};
+    const r = await cnSend({ kind: 'message', to_email: normEmail(t.email), to_name: t ? t.name : '', subject: T ? 'Message from a teacher' : 'Message from a student', body, meta: T ? { cls: 'Teacher' } : { cls: classLabel(me.classId), username: cnUsername() } });
     if (r) { document.getElementById('cn-m-body').value = ''; toast('Message sent.', 'success'); cn.openThread = r.id; cnRenderConvos(); }
     return;
   }
