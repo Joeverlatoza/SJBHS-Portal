@@ -9291,6 +9291,19 @@ function admBadges(rec) {
   return h;
 }
 let coverRef = null;
+// A substitute takes over the absent teacher's subjects and sections: their periods are copied onto the substitute's schedule
+// (marked coverOf, so they are removed again when the substitute is unticked or the teacher is back).
+function admCoverSync(absent) {
+  const key = nameKey(absent.name), want = new Set(absent.onLeave ? (absent.subs || []) : []);
+  const own = (absent.schedule || []).filter(e => e.coverOf !== key);
+  adAllTeachers().forEach(x => {
+    if (x === absent) return;
+    const keep = (x.schedule || []).filter(e => e.coverOf !== key);
+    const add = want.has(nameKey(x.name)) ? own.map(e => Object.assign({}, e, { id: uid('sch'), coverOf: key, src: 'cover' })) : [];
+    x.schedule = keep.concat(add);
+    if (x.id && !x.ghost) add.forEach(e => ensurePortalSubject(e.subject, x.id));
+  });
+}
 document.addEventListener('click', ev => {
   const b = ev.target.closest('[data-adm-cover]'); if (!b) return;
   if (!DB.auth || DB.auth.role !== 'admin') return;
@@ -9303,7 +9316,7 @@ document.addEventListener('click', ev => {
   const cands = adAllTeachers().filter(x => x !== rec && nameKey(x.name) !== me).sort((a, c) => (c.isSub ? 1 : 0) - (a.isSub ? 1 : 0) || adByName(a, c));
   const chosen = rec.subs || [];
   document.getElementById('cover-subs').innerHTML = cands.length ? cands.map(x => '<label class="flex items-center gap-2 text-sm py-1 px-1 rounded hover:bg-slate-50 dark:hover:bg-slate-800"><input type="checkbox" class="rounded cover-pick" value="' + escapeHtml(nameKey(x.name)) + '"' + (chosen.includes(nameKey(x.name)) ? ' checked' : '') + '><span class="flex-1 min-w-0 truncate">' + escapeHtml(x.name || 'Unnamed') + '</span>' + (x.isSub ? '<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-teal-100 dark:bg-teal-950/50 text-teal-800 dark:text-teal-200">Sub</span>' : '') + '</label>').join('') : '<p class="text-xs text-slate-500 dark:text-slate-400 p-2">No other teachers yet. Add a teacher first.</p>';
-  document.getElementById('cover-note').textContent = 'Tick one or more substitutes. Teachers marked as substitutes are listed first.';
+  document.getElementById('cover-note').textContent = 'Tick one or more substitutes. They get the same subjects and sections as this teacher, and lose them when unticked or when this teacher is back.';
   const sync = () => document.getElementById('cover-subs-wrap').classList.toggle('hidden', !document.getElementById('cover-leave').checked);
   document.getElementById('cover-leave').onchange = sync; sync();
   openModal('modal-cover');
@@ -9316,6 +9329,7 @@ document.getElementById('cover-form').addEventListener('submit', e => {
   rec.onLeave = onLeave;
   rec.subs = onLeave ? Array.from(document.querySelectorAll('#cover-subs .cover-pick:checked')).map(x => x.value) : [];
   if (onLeave && !rec.subs.length) toast(rec.name + ' is on leave with no substitute yet.', 'warning');
+  admCoverSync(rec);
   saveDB(); closeModal('modal-cover'); coverRef = null; renderAdminView();
   toast('Saved.', 'success');
 });
