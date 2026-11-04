@@ -1543,10 +1543,28 @@ function resyncAfterOffline() {
 }
 window.addEventListener('online', resyncAfterOffline);
 window.addEventListener('offline', () => { if (DB && DB.auth) refreshAfterRemoteChange(); });
+function cloudKeepNewAccounts(remote) {
+  if (!remote || !DB) return false;
+  DB.removedIds = DB.removedIds || [];
+  const gone = new Set(DB.removedIds.concat(remote.removedIds || []));
+  let added = false;
+  ['teachers', 'students'].forEach(k => {
+    DB[k] = DB[k] || [];
+    const have = new Set(DB[k].map(x => x.id));
+    (remote[k] || []).forEach(x => { if (x && x.id && !have.has(x.id) && !gone.has(x.id)) { DB[k].push(x); have.add(x.id); added = true; } });
+  });
+  (remote.removedIds || []).forEach(id => { if (!DB.removedIds.includes(id)) DB.removedIds.push(id); });
+  return added;
+}
 function pushToCloud() {
   if (!cloudDocRef || cloudApplyingRemote) return;
   clearTimeout(cloudWriteTimer);
-  cloudWriteTimer = setTimeout(() => {
+  cloudWriteTimer = setTimeout(async () => {
+    // Never wipe accounts that other devices created after this device last loaded: read the cloud copy and keep what is missing here.
+    try {
+      const cur = await sb.from('school_state').select('data').eq('id', 1).maybeSingle();
+      if (cur && cur.data && cur.data.data && cloudKeepNewAccounts(cur.data.data)) { try { localStorage.setItem(DB_KEY, JSON.stringify(dbNoAuth())); } catch (e) {} }
+    } catch (e) {}
     sb.from('school_state').upsert({ id: 1, data: dbNoAuth() }).then(({ error }) => {
       if (error) { markDirty(); toast('Could not sync to the cloud. Your changes are saved on this device and will sync when you are back online.', 'warning'); }
       else clearDirty();
