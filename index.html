@@ -3780,7 +3780,7 @@ document.getElementById('login-form').addEventListener('submit', async e => {
     const list = loginRole === 'teacher' ? DB.teachers : DB.students;
     const old = list.find(a => normEmail(a.email) === email);
     if (old && old.passwordHash && old.passwordHash === await sha256Hex(pw)) {
-      const su = await sb.auth.signUp({ email, password: pw });
+      const su = await sb.auth.signUp({ email, password: pw, options: { emailRedirectTo: location.origin + location.pathname } });
       if (su.error) { toast(authErrText(su.error), 'error'); return; }
     } else { toast(/confirm/i.test(r.error.message) ? 'Please confirm your email first.' : 'Incorrect email or password.', 'error'); return; }
   }
@@ -3872,7 +3872,7 @@ document.getElementById('signup-form').addEventListener('submit', async e => {
   if (roleConflict(email)) return;
   const byId = idNumber ? list.find(a => (a[idKey] || '').trim().toLowerCase() === idNumber.toLowerCase()) : null;
   if (byId && byId.email) { toast('That ID is already registered to an account. Log in instead.', 'warning'); return; }
-  const r = await sb.auth.signUp({ email, password: pw, options: { data: { name } } });
+  const r = await sb.auth.signUp({ email, password: pw, options: { data: { name }, emailRedirectTo: location.origin + location.pathname } });
   if (r.error) { toast(authErrText(r.error), 'error'); return; }
   if (r.data.user && r.data.user.identities && !r.data.user.identities.length) { toast('An account with that email already exists. Log in instead.', 'warning'); return; }
   if (!r.data.session) { toast('Check your email to confirm your account, then log in.', 'success'); setAuthMode('login'); return; }
@@ -8711,6 +8711,7 @@ document.getElementById('login-scan-badge').addEventListener('click', () => {
 /* ==================== ADMIN CONSOLE ==================== */
 function renderAdminView() {
   if (pruneSubjects()) saveDB();
+  if (typeof admCoverResync === 'function' && admCoverResync()) saveDB();
   renderCounselorSetting();
   document.getElementById('admin-stat-teachers').textContent = DB.teachers.length;
   document.getElementById('admin-stat-students').textContent = DB.students.length;
@@ -9299,9 +9300,18 @@ function admBadges(rec) {
 let coverRef = null;
 // A substitute takes over the absent teacher's subjects and sections: their periods are copied onto the substitute's schedule
 // (marked coverOf, so they are removed again when the substitute is unticked or the teacher is back).
+function admCoverSource(absent) {
+  const key = nameKey(absent.name), seen = new Set(), out = [];
+  const add = e => { const k = [e.subject, e.day, e.start, e.end, (e.classIds || []).slice().sort().join(','), e.term].join('|'); if (!seen.has(k)) { seen.add(k); out.push(e); } };
+  (absent.schedule || []).filter(e => e.coverOf !== key).forEach(add);
+  // The same teacher can also sit on the school list under another spelling of the name: take those periods too.
+  adPeople().filter(g => g !== absent && !g.accountId && adMatch(g.name, absent)).forEach(g => (g.schedule || []).filter(e => !e.coverOf).forEach(add));
+  return out;
+}
+function admCoverSig(list) { return list.map(e => [e.subject, e.day, e.start, e.end, (e.classIds || []).slice().sort().join(','), e.term].join('|')).sort().join(';'); }
 function admCoverSync(absent) {
   const key = nameKey(absent.name), want = new Set(absent.onLeave ? (absent.subs || []) : []);
-  const own = (absent.schedule || []).filter(e => e.coverOf !== key);
+  const own = admCoverSource(absent);
   adAllTeachers().forEach(x => {
     if (x === absent) return;
     const keep = (x.schedule || []).filter(e => e.coverOf !== key);
@@ -9309,6 +9319,17 @@ function admCoverSync(absent) {
     x.schedule = keep.concat(add);
     if (x.id && !x.ghost) add.forEach(e => ensurePortalSubject(e.subject, x.id));
   });
+  return own.length;
+}
+// Keeps every substitute in step with the teacher on leave (for example after the school schedule is uploaded again).
+function admCoverResync() {
+  let changed = false;
+  adAllTeachers().filter(t => t.onLeave && (t.subs || []).length).forEach(t => {
+    const key = nameKey(t.name), own = admCoverSource(t), sig = admCoverSig(own);
+    const stale = (t.subs || []).some(k => { const x = adAllTeachers().find(y => nameKey(y.name) === k); return x && admCoverSig((x.schedule || []).filter(e => e.coverOf === key)) !== sig; });
+    if (stale) { admCoverSync(t); changed = true; }
+  });
+  return changed;
 }
 document.addEventListener('click', ev => {
   const b = ev.target.closest('[data-adm-cover]'); if (!b) return;
@@ -9335,9 +9356,11 @@ document.getElementById('cover-form').addEventListener('submit', e => {
   rec.onLeave = onLeave;
   rec.subs = onLeave ? Array.from(document.querySelectorAll('#cover-subs .cover-pick:checked')).map(x => x.value) : [];
   if (onLeave && !rec.subs.length) toast(rec.name + ' is on leave with no substitute yet.', 'warning');
-  admCoverSync(rec);
+  const copied = admCoverSync(rec), names = rec.subs.map(k => { const x = adAllTeachers().find(y => nameKey(y.name) === k); return x ? x.name : ''; }).filter(Boolean);
   saveDB(); closeModal('modal-cover'); coverRef = null; renderAdminView();
-  toast('Saved.', 'success');
+  if (onLeave && rec.subs.length && !copied) toast(rec.name + ' has no timed periods saved, so there was nothing to copy to ' + names.join(', ') + '. Add or upload her schedule first, then save here again.', 'warning');
+  else if (onLeave && rec.subs.length) toast('Saved. ' + copied + ' period' + (copied === 1 ? '' : 's') + ' copied to ' + names.join(', ') + '.', 'success');
+  else toast('Saved.', 'success');
 });
 
 let addTeacherPhoto = '';

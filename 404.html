@@ -4,7 +4,7 @@
 // Any wrong or old link goes back to the portal's home page instead of showing a 404.
 (function () {
   var seg = location.pathname.split('/').filter(Boolean)[0];
-  location.replace((seg && location.hostname.indexOf('github.io') > -1 ? '/' + seg + '/' : '/') + location.search);
+  location.replace((seg && location.hostname.indexOf('github.io') > -1 ? '/' + seg + '/' : '/') + location.search + location.hash);
 })();
 </script></head>
 <body style="font-family:system-ui;padding:2rem;text-align:center"><p>Opening the portal...</p><p><a href="./">Tap here if nothing happens</a></p></body></html>
