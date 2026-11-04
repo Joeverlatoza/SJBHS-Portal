@@ -3781,7 +3781,7 @@ document.getElementById('login-form').addEventListener('submit', async e => {
     const old = list.find(a => normEmail(a.email) === email);
     if (old && old.passwordHash && old.passwordHash === await sha256Hex(pw)) {
       const su = await sb.auth.signUp({ email, password: pw });
-      if (su.error) { toast(su.error.message, 'error'); return; }
+      if (su.error) { toast(authErrText(su.error), 'error'); return; }
     } else { toast(/confirm/i.test(r.error.message) ? 'Please confirm your email first.' : 'Incorrect email or password.', 'error'); return; }
   }
   loginMethod = 'password';
@@ -3846,6 +3846,12 @@ document.getElementById('signup-email').addEventListener('input', () => {
   const n = document.getElementById('signup-name'), e = document.getElementById('signup-email').value;
   if (n && !n.value.trim() && depedOk(e)) n.value = nameFromDeped(e);
 });
+// Friendly text for sign-up / login errors. Supabase's email limit is hit when many people sign up in a short time.
+function authErrText(err) {
+  const m = String((err && (err.message || err.msg)) || ''), st = err && err.status;
+  if (st === 429 || /rate limit|too many|over_email_send_rate|email rate/i.test(m)) return 'Too many sign-ups right now. Wait about an hour and try again. If it keeps happening, tell your admin to turn off email confirmation in Supabase (Authentication, Providers, Email).';
+  return m || 'Something went wrong. Please try again.';
+}
 document.getElementById('signup-form').addEventListener('submit', async e => {
   e.preventDefault();
   if (needSb()) return;
@@ -3867,7 +3873,7 @@ document.getElementById('signup-form').addEventListener('submit', async e => {
   const byId = idNumber ? list.find(a => (a[idKey] || '').trim().toLowerCase() === idNumber.toLowerCase()) : null;
   if (byId && byId.email) { toast('That ID is already registered to an account. Log in instead.', 'warning'); return; }
   const r = await sb.auth.signUp({ email, password: pw, options: { data: { name } } });
-  if (r.error) { toast(r.error.message, 'error'); return; }
+  if (r.error) { toast(authErrText(r.error), 'error'); return; }
   if (r.data.user && r.data.user.identities && !r.data.user.identities.length) { toast('An account with that email already exists. Log in instead.', 'warning'); return; }
   if (!r.data.session) { toast('Check your email to confirm your account, then log in.', 'success'); setAuthMode('login'); return; }
   if (byId && !byId.preReg) byId.name = name;
