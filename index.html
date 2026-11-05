@@ -540,7 +540,7 @@ html[data-calm="1"] *{animation-duration:.001ms!important;animation-iteration-co
           <div class="space-y-6">
             <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
               <div class="flex flex-wrap items-end justify-between gap-2 mb-4">
-                <div><h2 class="text-sm font-semibold">Students</h2><p id="stu-sub" class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Everyone in this class and their status for this session.</p></div>
+                <div><h2 class="text-sm font-semibold">Students</h2><button type="button" data-open-records class="mt-1 text-xs font-medium text-indigo-600 dark:text-indigo-400">Attendance records &rarr;</button><p id="stu-sub" class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Everyone in this class and their status for this session.</p></div>
               </div>
               <div id="activity-empty" class="hidden py-10 text-center text-slate-500 dark:text-slate-400">
                 <i data-lucide="users" class="w-7 h-7 mx-auto mb-2 text-slate-400"></i>
@@ -725,6 +725,19 @@ html[data-calm="1"] *{animation-duration:.001ms!important;animation-iteration-co
       </section>
 
       <!-- LIVE SCANNER -->
+      <section data-view="records" class="view-section p-4 md:p-6 max-w-4xl mx-auto space-y-4">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+          <button type="button" id="rec-back" class="text-xs font-medium text-indigo-600 dark:text-indigo-400 mb-3">&larr; Back to Live Scanner</button>
+          <h2 class="text-sm font-semibold">Attendance records</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Pick the grade level and section you teach to see the saved days.</p>
+          <div class="grid grid-cols-2 gap-2 mt-3">
+            <label class="text-xs text-slate-500 dark:text-slate-400">Grade level<select id="rec-grade" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm px-3 py-2"></select></label>
+            <label class="text-xs text-slate-500 dark:text-slate-400">Section<select id="rec-section" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm px-3 py-2"></select></label>
+          </div>
+        </div>
+        <div id="rec-body"></div>
+      </section>
+
       <section data-view="scanner" class="view-section p-4 md:p-6 max-w-4xl mx-auto space-y-5">
         <div class="flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
           <div>
@@ -818,7 +831,7 @@ html[data-calm="1"] *{animation-duration:.001ms!important;animation-iteration-co
         </div>
 
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
-          <div class="mb-4"><h2 class="text-sm font-semibold">Students</h2><p id="sc-stu-sub" class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Everyone in this class and their status for this session.</p></div>
+          <div class="mb-4"><h2 class="text-sm font-semibold">Students</h2><button type="button" data-open-records class="mt-1 text-xs font-medium text-indigo-600 dark:text-indigo-400">Attendance records &rarr;</button><p id="sc-stu-sub" class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Everyone in this class and their status for this session.</p></div>
           <div id="sc-activity-empty" class="hidden py-10 text-center text-slate-500 dark:text-slate-400">
             <i data-lucide="users" class="w-7 h-7 mx-auto mb-2 text-slate-400"></i>
             <p class="text-sm">No students are enrolled in this class yet.</p>
@@ -1760,9 +1773,10 @@ async function readXlsxBook(buf, opts) {
   for (const sh of sheetList) {
     const sheetXml = await text(sh.path);
     if (!sheetXml) continue;
-    const rows = [], byNum = {}, sheetDoc = parse(sheetXml);
+    const rows = [], byNum = {}, seq = [], sheetDoc = parse(sheetXml); let prevN = 0;
     Array.from(sheetDoc.getElementsByTagName('row')).forEach(row => {
-      const r = [];
+      const r = [], nn = parseInt(row.getAttribute('r'), 10) || 0;
+      if (nn > prevN + 1 && prevN) seq.push([]); prevN = nn || prevN;
       Array.from(row.getElementsByTagName('c')).forEach(c => {
         const m = /^([A-Z]+)/.exec(c.getAttribute('r') || ''); if (!m) return;
         let ci = 0; for (const ch of m[1]) ci = ci * 26 + ch.charCodeAt(0) - 64; ci--;
@@ -1776,7 +1790,7 @@ async function readXlsxBook(buf, opts) {
       });
       for (let i = 0; i < r.length; i++) if (r[i] == null) r[i] = '';
       byNum[row.getAttribute('r')] = r;
-      rows.push(r);
+      rows.push(r); seq.push(r.some(x => x !== '') ? r : []);
     });
     if (opts && opts.fillDown) Array.from(sheetDoc.getElementsByTagName('mergeCell')).forEach(mc => {
       const m = /^([A-Z]+)(\d+):([A-Z]+)(\d+)$/.exec(mc.getAttribute('ref') || ''); if (!m || m[1] !== m[3]) return;
@@ -1784,7 +1798,7 @@ async function readXlsxBook(buf, opts) {
       const top = byNum[m[2]], v = top && top[ci]; if (!v) return;
       for (let rr = +m[2] + 1; rr <= +m[4]; rr++) { const row = byNum[rr]; if (!row) continue; while (row.length <= ci) row.push(''); row[ci] = v; }
     });
-    out.push({ name: sh.name, rows: rows.filter(r => r.some(x => x !== '')) });
+    out.push({ name: sh.name, rows: opts && opts.keepGaps ? seq : rows.filter(r => r.some(x => x !== '')) });
   }
   return out;
 }
@@ -1892,10 +1906,10 @@ function tickClock() {
 
 /* ==================== NAVIGATION ==================== */
 const PAGE_TITLES = {
-  admin: 'Admin Console', 'admin-schedule': 'School Schedule', 'admin-people': 'Accounts', 'admin-counsel': 'Counseling and Wellness', dashboard: 'Teacher Dashboard', scanner: 'Live Scanner', roster: 'Roster Manager',
+  admin: 'Admin Console', 'admin-schedule': 'School Schedule', 'admin-people': 'Accounts', 'admin-counsel': 'Counseling and Wellness', dashboard: 'Teacher Dashboard', scanner: 'Live Scanner', records: 'Attendance Records', roster: 'Roster Manager',
   studentid: 'Profile', counseling: 'Counseling', messages: 'Messages', guidance: 'Counseling', classroom: 'Classroom', learning: 'LMS', attendance: 'Attendance', subjects: 'Schedule', teachers: 'Teachers', settings: 'Settings'
 };
-const NAV_ROLES = { admin: ['admin'], 'admin-schedule': ['admin'], 'admin-people': ['admin'], 'admin-counsel': ['admin'], dashboard: ['teacher'], scanner: ['teacher'], roster: ['teacher'], studentid: ['student'], attendance: ['student'], subjects: ['student'], teachers: ['student'], counseling: ['student', 'teacher'], messages: ['teacher'], guidance: ['teacher'], classroom: ['teacher'], learning: ['student'], settings: ['admin', 'teacher'] };
+const NAV_ROLES = { admin: ['admin'], 'admin-schedule': ['admin'], 'admin-people': ['admin'], 'admin-counsel': ['admin'], dashboard: ['teacher'], scanner: ['teacher'], records: ['teacher'], roster: ['teacher'], studentid: ['student'], attendance: ['student'], subjects: ['student'], teachers: ['student'], counseling: ['student', 'teacher'], messages: ['teacher'], guidance: ['teacher'], classroom: ['teacher'], learning: ['student'], settings: ['admin', 'teacher'] };
 function defaultViewForRole(role) {
   if (role === 'admin') return 'admin';
   if (role === 'teacher') return 'dashboard';
@@ -1927,6 +1941,7 @@ function goToView(view) {
   if (view !== 'attendance') stopCheckinScanner();
   if (view === 'dashboard') renderDashboard();
   if (view === 'scanner') renderScannerView();
+  if (view === 'records') renderRecords();
   if (view === 'roster') renderRoster();
   if (view === 'studentid') renderStudentIdView();
   if (view === 'attendance') renderAttendanceView();
@@ -2449,6 +2464,88 @@ function exportClassCSV(classId, slotId) {
   toast('Attendance exported to Excel.', 'success');
 }
 
+
+/* ==================== ATTENDANCE RECORDS (TEACHER) ==================== */
+let recClassId = '', recDate = '';
+function recClasses() { return DB.auth && DB.auth.role === 'teacher' ? lcTeacherClasses() : DB.classes.slice(); }
+function recSessionsFor(classId) {
+  const me = getMyTeacher();
+  return DB.sessions.filter(se => se.classId === classId && (!me || !se.slotId || (findSlot(se.slotId) && findSlot(se.slotId).teacher.id === me.id)));
+}
+function recStatusOf(se, st) {
+  const l = activeLog(se.id, st.id); if (!l) return 'absent';
+  return l.status === 'pending' ? 'absent' : l.status;
+}
+function recCounts(se, roster) {
+  const c = { present: 0, late: 0, cutting: 0, absent: 0 };
+  roster.forEach(st => { const k = recStatusOf(se, st); c[c[k] === undefined ? 'absent' : k]++; });
+  return c;
+}
+function recChips(c) {
+  return '<span class="text-emerald-700 dark:text-emerald-400">Present ' + c.present + '</span> · <span class="text-amber-700 dark:text-amber-400">Late ' + c.late + '</span> · <span class="text-rose-700 dark:text-rose-400">Absent ' + c.absent + '</span> · <span class="text-orange-700 dark:text-orange-400">Cutting ' + c.cutting + '</span>';
+}
+function recRoster(classId) { return DB.students.filter(s => s.classId === classId); }
+function recRows(classId, sessions) {
+  const roster = stuGroups(recRoster(classId)).reduce((a, g) => a.concat(g.items), []);
+  const rows = [['Date', 'Subject', 'Start', 'Student', 'LRN', 'Sex', 'Status', 'Time', 'Marked by']];
+  sessions.forEach(se => roster.forEach(st => {
+    const l = activeLog(se.id, st.id), k = recStatusOf(se, st);
+    rows.push([se.date, se.subject || '', se.startTime || '', st.name, st.studentId || '', st.sex === 'M' ? 'Male' : st.sex === 'F' ? 'Female' : '', k.charAt(0).toUpperCase() + k.slice(1), l ? formatTime(l.timestamp) : '', l ? markedByText(l) : '']);
+  }));
+  return rows;
+}
+function renderRecords() {
+  const gSel = document.getElementById('rec-grade'), sSel = document.getElementById('rec-section'), body = document.getElementById('rec-body');
+  const cls = recClasses().slice().sort((a, b) => (a.name + a.section).localeCompare(b.name + b.section, undefined, { numeric: true }));
+  if (!cls.length) { gSel.innerHTML = sSel.innerHTML = ''; body.innerHTML = '<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 text-sm text-slate-500 dark:text-slate-400">No classes are on your schedule yet.</div>'; return; }
+  if (!cls.some(c => c.id === recClassId)) { recClassId = (cls.find(c => c.id === curPeriod.classId) || cls[0]).id; recDate = ''; }
+  const cur = cls.find(c => c.id === recClassId), grades = Array.from(new Set(cls.map(c => c.name)));
+  gSel.innerHTML = grades.map(g => '<option' + (g === cur.name ? ' selected' : '') + '>' + escapeHtml(g) + '</option>').join('');
+  sSel.innerHTML = cls.filter(c => c.name === cur.name).map(c => '<option value="' + c.id + '"' + (c.id === recClassId ? ' selected' : '') + '>' + escapeHtml(c.section || c.name) + '</option>').join('');
+  const roster = recRoster(recClassId), all = recSessionsFor(recClassId);
+  const byDate = {}; all.forEach(se => { (byDate[se.date] = byDate[se.date] || []).push(se); });
+  const dates = Object.keys(byDate).sort().reverse();
+  const card = 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5';
+  if (recDate && byDate[recDate]) {
+    const ses = byDate[recDate].slice().sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
+    let h = '<div class="' + card + '"><div class="flex flex-wrap items-center justify-between gap-2"><div><button type="button" id="rec-dates" class="text-xs font-medium text-indigo-600 dark:text-indigo-400">&larr; All days</button><h3 class="text-sm font-semibold mt-1">' + escapeHtml(new Date(recDate + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })) + '</h3><p class="text-xs text-slate-500 dark:text-slate-400">' + escapeHtml(classLabel(recClassId)) + '</p></div><button type="button" id="rec-dl-day" class="text-xs font-medium bg-emerald-600 text-white rounded-lg px-3 py-2">Download Excel</button></div></div>';
+    ses.forEach(se => {
+      const c = recCounts(se, roster);
+      h += '<div class="' + card + '"><h4 class="text-sm font-semibold">' + escapeHtml(se.subject || 'Class') + (se.startTime ? ' <span class="font-normal text-slate-500 dark:text-slate-400">· ' + escapeHtml(se.startTime) + '</span>' : '') + '</h4><p class="text-xs mt-1">' + recChips(c) + '</p>';
+      stuGroups(roster).forEach(gp => {
+        h += '<p class="mt-4 mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">' + gp.label + ' (' + gp.items.length + ')</p><div class="divide-y divide-slate-100 dark:divide-slate-800">' +
+          gp.items.map(st => { const l = activeLog(se.id, st.id); return '<div class="py-2 flex items-center justify-between gap-2"><div class="min-w-0"><p class="text-sm truncate">' + escapeHtml(st.name) + '</p><p class="text-[11px] text-slate-500 dark:text-slate-400">' + escapeHtml(st.studentId || '') + (l ? ' · ' + formatTime(l.timestamp) : '') + '</p></div>' + statusBadge(recStatusOf(se, st)) + '</div>'; }).join('') + '</div>';
+      });
+      h += '</div>';
+    });
+    body.innerHTML = h;
+  } else {
+    recDate = '';
+    let h = '<div class="' + card + '"><div class="flex flex-wrap items-center justify-between gap-2"><h3 class="text-sm font-semibold">Saved days</h3>' + (dates.length ? '<button type="button" id="rec-dl-all" class="text-xs font-medium bg-emerald-600 text-white rounded-lg px-3 py-2">Download all days</button>' : '') + '</div>';
+    h += dates.length ? '<div class="mt-3 divide-y divide-slate-100 dark:divide-slate-800">' + dates.map(d => {
+      const tot = { present: 0, late: 0, cutting: 0, absent: 0 }; byDate[d].forEach(se => { const c = recCounts(se, roster); Object.keys(tot).forEach(k => tot[k] += c[k]); });
+      return '<button type="button" data-rec-date="' + d + '" class="w-full text-left py-3 flex items-center justify-between gap-2"><span><span class="block text-sm font-medium">' + escapeHtml(new Date(d + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })) + '</span><span class="block text-xs mt-0.5">' + recChips(tot) + '</span><span class="block text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">' + byDate[d].length + ' session' + (byDate[d].length === 1 ? '' : 's') + '</span></span><span class="text-slate-400">&rsaquo;</span></button>';
+    }).join('') + '</div>' : '<p class="text-sm text-slate-500 dark:text-slate-400 mt-3">No attendance has been saved for this section yet.</p>';
+    body.innerHTML = h + '</div>';
+  }
+}
+document.getElementById('rec-grade').addEventListener('change', e => { const c = recClasses().find(x => x.name === e.target.value); if (c) { recClassId = c.id; recDate = ''; renderRecords(); } });
+document.getElementById('rec-section').addEventListener('change', e => { recClassId = e.target.value; recDate = ''; renderRecords(); });
+document.getElementById('rec-back').addEventListener('click', () => goToView('scanner'));
+document.getElementById('rec-body').addEventListener('click', ev => {
+  const d = ev.target.closest('[data-rec-date]'); if (d) { recDate = d.dataset.recDate; renderRecords(); window.scrollTo(0, 0); return; }
+  if (ev.target.closest('#rec-dates')) { recDate = ''; renderRecords(); return; }
+  const tag = (DB.classes.find(c => c.id === recClassId) || {}).name + '-' + ((DB.classes.find(c => c.id === recClassId) || {}).section || '');
+  const safe = tag.replace(/[^a-z0-9]+/gi, '-');
+  if (ev.target.closest('#rec-dl-day')) { downloadXlsx(recRows(recClassId, recSessionsFor(recClassId).filter(se => se.date === recDate)), 'attendance-' + safe + '-' + recDate + '.xlsx', recDate, [12, 20, 8, 30, 16, 9, 12, 12, 26]); toast('Excel downloaded.', 'success'); }
+  if (ev.target.closest('#rec-dl-all')) { downloadXlsx(recRows(recClassId, recSessionsFor(recClassId).slice().sort((a, b) => a.date.localeCompare(b.date) || (a.startTime || '').localeCompare(b.startTime || ''))), 'attendance-' + safe + '-all-days.xlsx', 'All days', [12, 20, 8, 30, 16, 9, 12, 12, 26]); toast('Excel downloaded.', 'success'); }
+});
+document.addEventListener('click', ev => {
+  if (!ev.target.closest('[data-open-records]')) return;
+  if (curPeriod && curPeriod.classId) { recClassId = curPeriod.classId; recDate = ''; }
+  goToView('records');
+});
+
 /* ==================== SCAN DUPLICATE GUARD ==================== */
 const lastScanMap = {};
 function isDuplicateScan(key, text) {
@@ -2746,7 +2843,7 @@ function renderAttendCard() {
     if (s.dropped) return '<div class="py-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 opacity-70"><div class="min-w-0 flex-1 basis-40"><p class="text-sm font-medium truncate">' + escapeHtml(s.name) + '</p><p class="text-[11px] text-slate-500 dark:text-slate-400">' + escapeHtml(s.studentId || '') + '</p></div><span class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">Dropped</span><button type="button" data-drop="' + s.id + '" class="text-[11px] font-medium rounded-md px-2 py-1 border border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400">Undo drop</button></div>';
     const l = session ? activeLog(session.id, s.id) : null, cur = l ? l.status : 'absent', rej = rejectedVouchCount(s.id);
     return '<div class="py-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5"><div class="min-w-0 flex-1 basis-40"><p class="text-sm font-medium truncate">' + escapeHtml(s.name) + '</p><p class="text-[11px] text-slate-500 dark:text-slate-400">' + escapeHtml(s.studentId || '') +
-      (l && l.vouchedBy ? ' · vouched by ' + escapeHtml(studentName(l.vouchedBy)) : '') + (rej ? ' · <span class="text-amber-600 dark:text-amber-400">' + rej + ' rejected vouch' + (rej === 1 ? '' : 'es') + '</span>' : '') + '</p><div class="mt-1 flex items-center gap-1"><button type="button" data-sex="' + s.id + '|M" title="Male" class="text-[10px] font-medium rounded px-1.5 py-0.5 border ' + (s.sex === 'M' ? 'border-sky-400 bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300' : 'border-slate-200 dark:border-slate-700 text-slate-400') + '">M</button><button type="button" data-sex="' + s.id + '|F" title="Female" class="text-[10px] font-medium rounded px-1.5 py-0.5 border ' + (s.sex === 'F' ? 'border-pink-400 bg-pink-50 dark:bg-pink-950/40 text-pink-700 dark:text-pink-300' : 'border-slate-200 dark:border-slate-700 text-slate-400') + '">F</button><button type="button" data-drop="' + s.id + '" title="Mark this student as dropped" class="text-[10px] font-medium rounded px-1.5 py-0.5 border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400">Drop</button></div></div>' +
+      (l && l.vouchedBy ? ' · vouched by ' + escapeHtml(studentName(l.vouchedBy)) : '') + (rej ? ' · <span class="text-amber-600 dark:text-amber-400">' + rej + ' rejected vouch' + (rej === 1 ? '' : 'es') + '</span>' : '') + '</p><div class="mt-1 flex items-center gap-1"><button type="button" data-sex="' + s.id + '|M" title="Male" class="text-[10px] font-medium rounded px-1.5 py-0.5 border ' + (s.sex === 'M' ? 'border-sky-400 bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300' : 'border-slate-200 dark:border-slate-700 text-slate-400') + '">M</button><button type="button" data-sex="' + s.id + '|F" title="Female" class="text-[10px] font-medium rounded px-1.5 py-0.5 border ' + (s.sex === 'F' ? 'border-pink-400 bg-pink-50 dark:bg-pink-950/40 text-pink-700 dark:text-pink-300' : 'border-slate-200 dark:border-slate-700 text-slate-400') + '">F</button><button type="button" data-drop="' + s.id + '" title="Drop this student (deletes the account)" class="text-[10px] font-medium rounded px-1.5 py-0.5 border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400">Drop</button></div></div>' +
       statusBadge(cur) +
       '<div class="flex items-center gap-1">' + (npState.ok ? '<button type="button" data-card="' + s.id + '" title="Show this student\'s ID card" class="text-[11px] font-medium rounded-md px-2 py-1 border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-300">Card</button>' : '') + btn(s, 'present', 'Present', cur === 'present', 'border-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400') +
       btn(s, 'late', 'Late', cur === 'late', 'border-amber-400 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400') +
@@ -2797,7 +2894,7 @@ document.addEventListener('click', ev => {
 });
 document.getElementById('attend-card').addEventListener('click', ev => {
   const sx = ev.target.closest('[data-sex]'); if (sx) { const a = sx.dataset.sex.split('|'), st0 = DB.students.find(x => x.id === a[0]); if (st0) { st0.sex = st0.sex === a[1] ? '' : a[1]; saveDB(); renderAttendCard(); renderDashboardStats(); } return; }
-  const dr = ev.target.closest('[data-drop]'); if (dr) { const st0 = DB.students.find(x => x.id === dr.dataset.drop); if (st0) { st0.dropped = !st0.dropped; if (st0.dropped) { const ses = findSession(st0.classId, curPeriod.slotId); if (ses) DB.logs = DB.logs.filter(l => !(l.sessionId === ses.id && l.studentId === st0.id)); } saveDB(); renderAttendCard(); renderDashboardStats(); toast(st0.name + (st0.dropped ? ' is marked as dropped.' : ' is back in the class.'), st0.dropped ? 'warning' : 'success'); } return; }
+  const dr = ev.target.closest('[data-drop]'); if (dr) { const st0 = DB.students.find(x => x.id === dr.dataset.drop); if (st0 && confirm('Drop ' + st0.name + '?\n\nTheir account and all their records in this class will be deleted. This cannot be undone.')) { removeStudentAccount(st0.id); saveDB(); renderAttendCard(); renderDashboardStats(); toast(st0.name + ' was dropped and the account was deleted.', 'warning'); } return; }
   const m = ev.target.closest('[data-mark]'); if (m) { const a = m.dataset.mark.split('|'); setAttendance(a[0], a[1]); return; }
   const n = ev.target.closest('[data-noph]');
   if (n) { const s = DB.students.find(x => x.id === n.dataset.noph); if (s) { s.noPhone = !s.noPhone; saveDB(); renderAttendCard(); } return; }
@@ -8911,9 +9008,10 @@ function stuFromRows(rows, hint) {
     });
   }
   if (hdr < 0) return [];
-  const groups = new Map(), skipped = [];
+  const groups = new Map(), skipped = []; let blk = 0, seenStu = false, gap = false;
   for (let i = hdr + 1; i < rows.length; i++) {
     const r = rows[i] || [];
+    if (!r.some(c => String(c == null ? '' : c).trim())) { if (seenStu) gap = true; continue; }
     const name = stuName(cN >= 0 ? r[cN] : [r[cFirst], cMid >= 0 ? r[cMid] : '', r[cLast]].filter(x => String(x || '').trim()).join(' '));
     const lrn = stuLrn(r[cL]);
     if (name && stuIsGender(name)) { const sx = stuSexOf(name.replace(/\s.*$/, '')); if (sx) curSex = sx; continue; }
@@ -8922,8 +9020,10 @@ function stuFromRows(rows, hint) {
     let key = label || hint || '';
     if (cG >= 0 && cS >= 0 && String(r[cS] || '').trim()) key = String(r[cG] || '').replace(/\D/g, '') + ' - ' + String(r[cS]).trim();
     if (!groups.has(key)) groups.set(key, { label: key, adviser, rows: [], skipped: [] });
-    groups.get(key).rows.push({ name, lrn, sex: (cSx >= 0 ? stuSexOf(r[cSx]) : '') || curSex });
+    if (gap) { blk++; gap = false; } seenStu = true;
+    groups.get(key).rows.push({ name, lrn, sex: (cSx >= 0 ? stuSexOf(r[cSx]) : '') || curSex, blk });
   }
+  groups.forEach(g => { const none = g.rows.every(x => !x.sex), n = Math.max.apply(null, g.rows.map(x => x.blk)) + 1; if (none && n === 2) g.rows.forEach(x => { x.sex = x.blk === 0 ? 'M' : 'F'; }); });
   const out = Array.from(groups.values()); if (out.length) out[0].skipped = skipped;
   return out;
 }
@@ -9041,7 +9141,7 @@ async function stuParseFile(file) {
   const txt = () => new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(String(e.target.result).replace(/^﻿/, '')); r.onerror = rej; r.readAsText(file); });
   if (/\.xls$/i.test(name)) throw new Error('xls');
   if (/\.(xlsx|xlsm)$/i.test(name)) {
-    const sheets = await readXlsxBook(await buf()); let out = [];
+    const sheets = await readXlsxBook(await buf(), { keepGaps: true }); let out = [];
     sheets.forEach(sh => { out = out.concat(stuFromRows(sh.rows || [], sh.name)); });
     return out;
   }
