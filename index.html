@@ -2368,8 +2368,8 @@ function renderDashboardStats() {
   const classId = curPeriod.classId;
   if (!classId) return;
   const session = findSession(classId, curPeriod.slotId);
-  const roster = DB.students.filter(s => s.classId === classId);
-  const logs = session ? DB.logs.filter(l => l.sessionId === session.id && l.status !== 'rejected') : [];
+  const rosterAll = DB.students.filter(s => s.classId === classId), roster = rosterAll.filter(s => !s.dropped), droppedIds = new Set(rosterAll.filter(s => s.dropped).map(s => s.id));
+  const logs = session ? DB.logs.filter(l => l.sessionId === session.id && l.status !== 'rejected' && !droppedIds.has(l.studentId)) : [];
   const present = logs.filter(l => l.status === 'present').length;
   const late = logs.filter(l => l.status === 'late').length;
   const cutting = logs.filter(l => l.status === 'cutting').length;
@@ -2382,17 +2382,19 @@ function renderDashboardStats() {
   document.getElementById('stat-rate').textContent = rate + '%';
 
   const body = document.getElementById('activity-body');
-  const students = roster.slice().sort((x, y) => (x.name || '').localeCompare(y.name || ''));
-  document.getElementById('activity-empty').classList.toggle('hidden', students.length > 0);
-  document.getElementById('activity-table').classList.toggle('hidden', students.length === 0);
+  const students = roster;
+  document.getElementById('activity-empty').classList.toggle('hidden', rosterAll.length > 0);
+  document.getElementById('activity-table').classList.toggle('hidden', rosterAll.length === 0);
   const npNow = noPhoneToolsState();
-  body.innerHTML = students.map(st => {
+  const dashRow = st => {
+    if (st.dropped) return '<tr class="opacity-60"><td class="py-2.5">' + escapeHtml(st.name || '') + '</td><td class="py-2.5 text-slate-500 dark:text-slate-400">' + escapeHtml(st.studentId || '—') + '</td><td class="py-2.5"><span class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">Dropped</span></td><td class="py-2.5">—</td></tr>';
     const log = session ? activeLog(session.id, st.id) : null;
     const cur = log ? log.status : 'absent';
     return '<tr><td class="py-2.5">' + escapeHtml(st.name || '') + (st.noPhone ? ' <span class="text-[10px] text-sky-600 dark:text-sky-400">no phone</span>' : '') + (npNow.ok ? '<div class="mt-1 flex gap-1"><button type="button" data-dcard="' + st.id + '" class="text-[10px] font-medium rounded px-1.5 py-0.5 border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-300">Card</button>' + npRowBtn(st.id, 'present', 'Present', cur === 'present', 'border-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400') + npRowBtn(st.id, 'late', 'Late', cur === 'late', 'border-amber-400 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400') + npRowBtn(st.id, 'absent', 'Absent', cur === 'absent' || cur === 'pending', 'border-slate-400 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200') + '</div>' : '') + '</td><td class="py-2.5 text-slate-500 dark:text-slate-400">' + escapeHtml(st.studentId || '—') +
       '</td><td class="py-2.5">' + statusBadge(cur) + (log && log.vouchedBy ? '<span class="block text-[10px] text-slate-400 mt-0.5">vouched by ' + escapeHtml(studentName(log.vouchedBy)) + '</span>' : '') +
       '</td><td class="py-2.5 tabular-nums text-slate-500 dark:text-slate-400">' + (log ? formatTime(log.timestamp) : '—') + '</td></tr>';
-  }).join('');
+  };
+  body.innerHTML = stuGroups(rosterAll).map(gp => '<tr><td colspan="4" class="pt-4 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">' + gp.label + ' (' + gp.items.length + ')</td></tr>' + gp.items.map(dashRow).join('')).join('');
   const npBox = document.getElementById('dash-np');
   if (npBox && !npNow.ok) npBox.innerHTML = noPhoneHint(npNow.why);
   else if (npBox) {
@@ -2405,7 +2407,7 @@ function renderDashboardStats() {
   document.getElementById('stu-sub').textContent = (cls ? classLabel(classId) : '') + (subj ? ' · ' + subj : '') + ' · ' + todayStr();
   const _sb = document.getElementById('sc-activity-body');
   const _sum = 'Present ' + present + ' · Late ' + late + ' · Cutting ' + cutting + ' · Absent ' + Math.max(0, enrolled - present - late - cutting) + ' · Attendance rate ' + rate + '% (' + enrolled + ' students)';
-  if (_sb) { _sb.innerHTML = body.innerHTML; document.getElementById('sc-activity-empty').classList.toggle('hidden', students.length > 0); document.getElementById('sc-activity-table').classList.toggle('hidden', students.length === 0); document.getElementById('sc-stu-sub').textContent = document.getElementById('stu-sub').textContent; document.getElementById('sc-report-summary').textContent = _sum; }
+  if (_sb) { _sb.innerHTML = body.innerHTML; document.getElementById('sc-activity-empty').classList.toggle('hidden', rosterAll.length > 0); document.getElementById('sc-activity-table').classList.toggle('hidden', rosterAll.length === 0); document.getElementById('sc-stu-sub').textContent = document.getElementById('stu-sub').textContent; document.getElementById('sc-report-summary').textContent = _sum; }
   refreshIcons();
 }
 
@@ -2440,9 +2442,10 @@ document.getElementById('session-start-time').addEventListener('change', e => {
 function exportClassCSV(classId, slotId) {
   const cls = DB.classes.find(c => c.id === classId);
   const session = getOrCreateSession(classId, slotId);
-  const roster = DB.students.filter(s => s.classId === classId);
+  const roster = stuGroups(DB.students.filter(s => s.classId === classId)).reduce((a, g) => a.concat(g.items), []);
   const rows = [['Full Name', 'Student ID', 'Section', 'Subject', 'Status', 'Time', 'Marked by']];
   roster.forEach(s => {
+    if (s.dropped) { rows.push([s.name, s.studentId, s.section || '', session.subject || '', 'Dropped', '', '']); return; }
     const log = activeLog(session.id, s.id);
     const st = log ? (log.status === 'pending' ? 'unconfirmed' : log.status) : 'absent';
     rows.push([s.name, s.studentId, s.section || '', session.subject || '', st.charAt(0).toUpperCase() + st.slice(1), log ? formatTime(log.timestamp) : '', log ? markedByText(log) : '']);
@@ -2684,7 +2687,7 @@ function possibleCutting(session) {
   if (!session) return [];
   const start = minOf(session.startTime);
   if (start === null || minutesNow() < start + (Number(DB.settings.lateThresholdMinutes) || 0)) return [];
-  return DB.students.filter(s => s.classId === session.classId && !activeLog(session.id, s.id)).filter(s =>
+  return DB.students.filter(s => s.classId === session.classId && !s.dropped && !activeLog(session.id, s.id)).filter(s =>
     DB.logs.some(l => {
       if (l.studentId !== s.id || l.date !== session.date || l.sessionId === session.id || !(l.status === 'present' || l.status === 'late')) return false;
       const other = DB.sessions.find(x => x.id === l.sessionId);
@@ -2722,7 +2725,7 @@ function renderAttendCard() {
   const el = document.getElementById('attend-card');
   if (!el || !getMyTeacher() || !curPeriod.classId) return;
   const session = findSession(curPeriod.classId, curPeriod.slotId);
-  const roster = DB.students.filter(s => s.classId === curPeriod.classId).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  const rosterAll = DB.students.filter(s => s.classId === curPeriod.classId), roster = rosterAll.filter(s => !s.dropped);
   const pending = session ? DB.logs.filter(l => l.sessionId === session.id && l.status === 'pending') : [];
   const cut = possibleCutting(session);
   if (pending.length > lastPendingCount) toast(pending.length + ' classmate check-in' + (pending.length === 1 ? ' is' : 's are') + ' waiting for your confirmation.', 'warning');
@@ -2746,17 +2749,19 @@ function renderAttendCard() {
   h += npPanel;
   const sn = document.getElementById('scanner-np'); if (sn) sn.innerHTML = npPanel;
   const btn = (s, st, label, on, cls) => '<button type="button" data-mark="' + s.id + '|' + st + '" class="text-[11px] font-medium rounded-md px-2 py-1 border ' + (on ? cls : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400') + '">' + label + '</button>';
-  h += roster.length ? '<div class="divide-y divide-slate-100 dark:divide-slate-800">' + roster.map(s => {
+  const attRow = s => {
+    if (s.dropped) return '<div class="py-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 opacity-70"><div class="min-w-0 flex-1 basis-40"><p class="text-sm font-medium truncate">' + escapeHtml(s.name) + '</p><p class="text-[11px] text-slate-500 dark:text-slate-400">' + escapeHtml(s.studentId || '') + '</p></div><span class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">Dropped</span><button type="button" data-drop="' + s.id + '" class="text-[11px] font-medium rounded-md px-2 py-1 border border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400">Undo drop</button></div>';
     const l = session ? activeLog(session.id, s.id) : null, cur = l ? l.status : 'absent', rej = rejectedVouchCount(s.id);
     return '<div class="py-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5"><div class="min-w-0 flex-1 basis-40"><p class="text-sm font-medium truncate">' + escapeHtml(s.name) + '</p><p class="text-[11px] text-slate-500 dark:text-slate-400">' + escapeHtml(s.studentId || '') +
-      (l && l.vouchedBy ? ' · vouched by ' + escapeHtml(studentName(l.vouchedBy)) : '') + (rej ? ' · <span class="text-amber-600 dark:text-amber-400">' + rej + ' rejected vouch' + (rej === 1 ? '' : 'es') + '</span>' : '') + '</p></div>' +
+      (l && l.vouchedBy ? ' · vouched by ' + escapeHtml(studentName(l.vouchedBy)) : '') + (rej ? ' · <span class="text-amber-600 dark:text-amber-400">' + rej + ' rejected vouch' + (rej === 1 ? '' : 'es') + '</span>' : '') + '</p><div class="mt-1 flex items-center gap-1"><button type="button" data-sex="' + s.id + '|M" title="Male" class="text-[10px] font-medium rounded px-1.5 py-0.5 border ' + (s.sex === 'M' ? 'border-sky-400 bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300' : 'border-slate-200 dark:border-slate-700 text-slate-400') + '">M</button><button type="button" data-sex="' + s.id + '|F" title="Female" class="text-[10px] font-medium rounded px-1.5 py-0.5 border ' + (s.sex === 'F' ? 'border-pink-400 bg-pink-50 dark:bg-pink-950/40 text-pink-700 dark:text-pink-300' : 'border-slate-200 dark:border-slate-700 text-slate-400') + '">F</button><button type="button" data-drop="' + s.id + '" title="Mark this student as dropped" class="text-[10px] font-medium rounded px-1.5 py-0.5 border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400">Drop</button></div></div>' +
       statusBadge(cur) +
       '<div class="flex items-center gap-1">' + (npState.ok ? '<button type="button" data-card="' + s.id + '" title="Show this student\'s ID card" class="text-[11px] font-medium rounded-md px-2 py-1 border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-300">Card</button>' : '') + btn(s, 'present', 'Present', cur === 'present', 'border-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400') +
       btn(s, 'late', 'Late', cur === 'late', 'border-amber-400 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400') +
       btn(s, 'cutting', 'Cutting', cur === 'cutting', 'border-rose-400 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400') +
       btn(s, 'absent', 'Absent', cur === 'absent' || cur === 'pending', 'border-slate-400 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200') +
       '<button type="button" data-noph="' + s.id + '" title="Student has no phone: classmates may vouch for them" class="text-[11px] font-medium rounded-md px-2 py-1 border ' + (s.noPhone ? 'border-sky-400 bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300' : 'border-slate-200 dark:border-slate-700 text-slate-400') + '">No phone</button></div></div>';
-  }).join('') + '</div>' : '<p class="text-sm text-slate-500 dark:text-slate-400 py-3 text-center">No students are enrolled in this section yet.</p>';
+  };
+  h += rosterAll.length ? stuGroups(rosterAll).map(gp => '<p class="mt-4 mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">' + gp.label + ' (' + gp.items.length + ')</p><div class="divide-y divide-slate-100 dark:divide-slate-800">' + gp.items.map(attRow).join('') + '</div>').join('') : '<p class="text-sm text-slate-500 dark:text-slate-400 py-3 text-center">No students are enrolled in this section yet.</p>';
   el.innerHTML = h;
   refreshIcons();
 }
@@ -2780,7 +2785,7 @@ function markNoPhone(status) {
   if (!getMyTeacher() || !curPeriod.classId) return;
   const ns = noPhoneToolsState(); if (!ns.ok) { toast(ns.why, 'info'); return; }
   const session = getOrCreateSession(curPeriod.classId, curPeriod.slotId);
-  const list = DB.students.filter(s => s.classId === curPeriod.classId && s.noPhone);
+  const list = DB.students.filter(s => s.classId === curPeriod.classId && s.noPhone && !s.dropped);
   list.forEach(s => {
     const cur = activeLog(session.id, s.id);
     if (status === 'absent') { if (cur) DB.logs = DB.logs.filter(l => l !== cur); }
@@ -2798,6 +2803,8 @@ document.addEventListener('click', ev => {
   const cb = ev.target.closest('[data-card],[data-dcard]'); if (cb) { showStudentCard(cb.dataset.card || cb.dataset.dcard); return; }
 });
 document.getElementById('attend-card').addEventListener('click', ev => {
+  const sx = ev.target.closest('[data-sex]'); if (sx) { const a = sx.dataset.sex.split('|'), st0 = DB.students.find(x => x.id === a[0]); if (st0) { st0.sex = st0.sex === a[1] ? '' : a[1]; saveDB(); renderAttendCard(); renderDashboardStats(); } return; }
+  const dr = ev.target.closest('[data-drop]'); if (dr) { const st0 = DB.students.find(x => x.id === dr.dataset.drop); if (st0) { st0.dropped = !st0.dropped; if (st0.dropped) { const ses = findSession(st0.classId, curPeriod.slotId); if (ses) DB.logs = DB.logs.filter(l => !(l.sessionId === ses.id && l.studentId === st0.id)); } saveDB(); renderAttendCard(); renderDashboardStats(); toast(st0.name + (st0.dropped ? ' is marked as dropped.' : ' is back in the class.'), st0.dropped ? 'warning' : 'success'); } return; }
   const m = ev.target.closest('[data-mark]'); if (m) { const a = m.dataset.mark.split('|'); setAttendance(a[0], a[1]); return; }
   const n = ev.target.closest('[data-noph]');
   if (n) { const s = DB.students.find(x => x.id === n.dataset.noph); if (s) { s.noPhone = !s.noPhone; saveDB(); renderAttendCard(); } return; }
@@ -8877,9 +8884,23 @@ function stuFirstNext(r, j) {
   for (let k = j + 1; k < r.length; k++) { const t = String(r[k] == null ? '' : r[k]).trim(); if (t) return t; }
   return '';
 }
+const STU_PARTICLES = new Set(['de', 'del', 'dela', 'delos', 'delas', 'la', 'las', 'los', 'san', 'santa', 'santo', 'van', 'von']);
+function stuSurnameKey(name) {
+  const tk = String(name || '').trim().split(/\s+/).filter(Boolean); if (tk.length < 2) return String(name || '').toLowerCase();
+  let i = tk.length - 1; while (i > 0 && STU_PARTICLES.has(tk[i - 1].toLowerCase())) i--;
+  return (tk.slice(i).join(' ') + ' ' + tk.slice(0, i).join(' ')).toLowerCase();
+}
+function stuByName(a, b) { return stuSurnameKey(a.name).localeCompare(stuSurnameKey(b.name)); }
+// Class list in order: Male, Female, sex not set, then dropped. Each group is alphabetical by surname.
+function stuGroups(list) {
+  const g = { M: { label: 'Male', items: [] }, F: { label: 'Female', items: [] }, N: { label: 'Sex not set', items: [] }, D: { label: 'Dropped', items: [] } };
+  list.forEach(x => g[x.dropped ? 'D' : x.sex === 'M' ? 'M' : x.sex === 'F' ? 'F' : 'N'].items.push(x));
+  return [g.M, g.F, g.N, g.D].map(x => { x.items.sort(stuByName); return x; }).filter(x => x.items.length);
+}
+function stuSexOf(t) { t = String(t || '').trim(); return /^(male|boys?|lalaki|m)$/i.test(t) ? 'M' : /^(female|girls?|babae|f)$/i.test(t) ? 'F' : ''; }
 function stuIsGender(t) { return /^(male|female|boys?|girls?|total|lalaki|babae)\b/i.test(String(t).trim()); }
 function stuFromRows(rows, hint) {
-  let label = '', adviser = '', hdr = -1, cN = -1, cL = -1, cLast = -1, cFirst = -1, cMid = -1, cG = -1, cS = -1;
+  let label = '', adviser = '', hdr = -1, cN = -1, cL = -1, cLast = -1, cFirst = -1, cMid = -1, cG = -1, cS = -1, cSx = -1, curSex = '';
   const lim = Math.min(rows.length, 80);
   for (let i = 0; i < lim && hdr < 0; i++) {
     const r = rows[i] || [], lc = r.map(c => String(c == null ? '' : c).trim().toLowerCase());
@@ -8888,7 +8909,7 @@ function stuFromRows(rows, hint) {
     const iLast = lc.findIndex(t => /^(last|sur|family)\s*name|^surname/.test(t)), iFirst = lc.findIndex(t => /^(first|given)\s*name/.test(t));
     if (iL >= 0 && (iN >= 0 || (iLast >= 0 && iFirst >= 0))) {
       hdr = i; cL = iL; cN = iLast >= 0 && iFirst >= 0 ? -1 : iN; cLast = iLast; cFirst = iFirst; cMid = lc.findIndex(t => /^middle/.test(t));
-      cG = lc.findIndex(t => /^(grade|year)( level)?$/.test(t)); cS = lc.findIndex(t => /^section$/.test(t)); break;
+      cG = lc.findIndex(t => /^(grade|year)( level)?$/.test(t)); cS = lc.findIndex(t => /^section$/.test(t)); cSx = lc.findIndex(t => /^(sex|gender)$/.test(t)); break;
     }
     r.forEach((c, j) => {
       const t = String(c == null ? '' : c).trim(); if (!t) return;
@@ -8902,27 +8923,29 @@ function stuFromRows(rows, hint) {
     const r = rows[i] || [];
     const name = stuName(cN >= 0 ? r[cN] : [r[cFirst], cMid >= 0 ? r[cMid] : '', r[cLast]].filter(x => String(x || '').trim()).join(' '));
     const lrn = stuLrn(r[cL]);
-    if (!name || !/[A-Za-zñÑ]/.test(name) || stuIsGender(name)) continue;
+    if (name && stuIsGender(name)) { const sx = stuSexOf(name.replace(/\s.*$/, '')); if (sx) curSex = sx; continue; }
+    if (!name || !/[A-Za-zñÑ]/.test(name)) continue;
     if (!lrn) { skipped.push(name); continue; }
     let key = label || hint || '';
     if (cG >= 0 && cS >= 0 && String(r[cS] || '').trim()) key = String(r[cG] || '').replace(/\D/g, '') + ' - ' + String(r[cS]).trim();
     if (!groups.has(key)) groups.set(key, { label: key, adviser, rows: [], skipped: [] });
-    groups.get(key).rows.push({ name, lrn });
+    groups.get(key).rows.push({ name, lrn, sex: (cSx >= 0 ? stuSexOf(r[cSx]) : '') || curSex });
   }
   const out = Array.from(groups.values()); if (out.length) out[0].skipped = skipped;
   return out;
 }
 // Free text lines such as "1  Casten, Nyjel Lumbang   105891170006".
 function stuFromLines(lines, hint) {
-  let label = '', adviser = '';
+  let label = '', adviser = '', curSex = '';
   const rows = [], skipped = [];
   lines.forEach(raw => {
     const l = String(raw || '').replace(/\s+/g, ' ').trim(); if (!l) return;
+    { const hs = /^(male|female|boys?|girls?|lalaki|babae)\b/i.exec(l); if (hs && !/\d{10}/.test(l)) curSex = stuSexOf(hs[1]) || curSex; }
     const a = /advis[eo]r\s*[:：]?\s*(.+)$/i.exec(l); if (a && !adviser) { adviser = a[1].trim(); }
     const g = /(?:grade\s*)?\b(\d{1,2})\s*[-–—]\s*([A-Za-zñÑ]+)\b/.exec(l); if (g && !label && !/\d{10}/.test(l) && Number(g[1]) >= 7 && Number(g[1]) <= 12) label = g[1] + ' - ' + g[2];
     const m = /\b(\d{12})\b/.exec(l); if (!m) return;
     const name = stuName(l.replace(m[0], ' ').replace(/^\s*\d{1,3}[.)]?\s+/, '').replace(/[:T]?\s*0\d[\d ]{8,}/g, ' ').replace(/\s+/g, ' '));
-    if (name && /[A-Za-zñÑ]{2}/.test(name) && !stuIsGender(name)) rows.push({ name, lrn: m[1] });
+    if (name && /[A-Za-zñÑ]{2}/.test(name) && !stuIsGender(name)) rows.push({ name, lrn: m[1], sex: curSex });
   });
   return rows.length ? [{ label: label || hint || '', adviser, rows, skipped }] : [];
 }
@@ -9063,8 +9086,8 @@ function stuApply() {
     const cls = DB.classes.find(c => c.id === s.classId); if (!cls) return;
     s.rows.forEach(r => {
       let st = DB.students.find(x => x.studentId === r.lrn);
-      if (st) { if (!st.email) st.name = r.name; st.classId = cls.id; st.section = cls.section || ''; updated++; }
-      else { DB.students.push({ id: uid('stu'), name: r.name, studentId: r.lrn, section: cls.section || '', classId: cls.id, photo: '', email: '', preReg: true, createdAt: new Date().toISOString() }); added++; }
+      if (st) { if (!st.email) st.name = r.name; st.classId = cls.id; st.section = cls.section || ''; if (r.sex && !st.sex) st.sex = r.sex; updated++; }
+      else { DB.students.push({ id: uid('stu'), name: r.name, studentId: r.lrn, section: cls.section || '', classId: cls.id, photo: '', email: '', preReg: true, sex: r.sex || '', createdAt: new Date().toISOString() }); added++; }
     });
     const adv = String(s.adviser || '').trim();
     if (adv) {
@@ -10583,11 +10606,21 @@ function lcQBlock() {
     '<button type="button" class="' + lcBtn2 + ' mt-2" onclick="this.closest(\'.lc-qb\').remove()">Remove question</button></div>';
 }
 function lcAddQuestion() { document.getElementById('lc-qs').insertAdjacentHTML('beforeend', lcQBlock()); }
+// The subjects this teacher teaches: the ones in their schedule (including a substitute's inherited ones) and the ones they own.
+function lcMySubjectList() {
+  const t = getMyTeacher(); if (!t) return DB.subjects.slice();
+  const before = DB.subjects.length;
+  (t.schedule || []).forEach(e => { if ((e.subject || '').trim()) ensurePortalSubject(e.subject, t.id); });
+  if (DB.subjects.length !== before) saveDB();
+  const names = new Set((t.schedule || []).map(e => subjKey(e.subject)).filter(Boolean));
+  return DB.subjects.filter(sb => (sb.ownerIds || []).includes(t.id) || names.has(subjKey(sb.name)));
+}
 function lcTPublish() {
-  if (!DB.subjects.length) return lcEmpty('Create a subject first, then you can publish materials. <button type="button" class="' + lcBtn + ' ml-2" onclick="lcSetTab(\'teacher\',\'subjects\')">Add subject</button>');
+  const mySubs = lcMySubjectList();
+  if (!mySubs.length) return lcEmpty('You have no subjects yet. Your subjects come from your schedule. You can also add one here. <button type="button" class="' + lcBtn + ' ml-2" onclick="lcSetTab(\'teacher\',\'subjects\')">Add subject</button>');
   return lcH('Publish material') + '<div class="' + lcCard + ' max-w-2xl"><div class="grid grid-cols-1 sm:grid-cols-2 gap-3">' +
     '<div><label class="' + lcLbl + '">Type</label><select id="lc-pt" class="' + lcInp + '" onchange="lcTypeChange()">' + Object.keys(LC_TYPES).map(k => '<option value="' + k + '">' + LC_TYPES[k] + '</option>').join('') + '</select></div>' +
-    '<div><label class="' + lcLbl + '">Subject</label><select id="lc-ps" class="' + lcInp + '">' + DB.subjects.map(s => '<option value="' + s.id + '">' + lcE(s.name) + '</option>').join('') + '</select></div></div>' +
+    '<div><label class="' + lcLbl + '">Subject (the ones you teach)</label><select id="lc-ps" class="' + lcInp + '">' + mySubs.map(s => '<option value="' + s.id + '">' + lcE(s.name) + '</option>').join('') + '</select></div></div>' +
     '<label class="' + lcLbl + ' mt-3">Send to</label><select id="lc-ptarget" class="' + lcInp + '"><option value="">All classes</option>' + lcClassOptions(lcPubTarget, lcTeacherClasses()) + '</select>' +
     '<label class="' + lcLbl + ' mt-3">Title</label><input id="lc-ptitle" class="' + lcInp + '">' +
     '<div id="lc-dueW"><label class="' + lcLbl + ' mt-3">Due date</label><input id="lc-pdue" type="date" class="' + lcInp + '"></div>' +
@@ -10658,11 +10691,12 @@ function lcGradeSub(id) {
 }
 function lcTGrades() {
   const classes = lcTeacherClasses();
-  if (!DB.subjects.length) return lcH('Grade ledger') + lcEmpty('Create a subject first.');
-  if (!DB.subjects.some(s => s.id === lcLedgerSub)) lcLedgerSub = DB.subjects[0].id;
+  const mySubs = lcMySubjectList();
+  if (!mySubs.length) return lcH('Grade ledger') + lcEmpty('You have no subjects yet. Your subjects come from your schedule.');
+  if (!mySubs.some(s => s.id === lcLedgerSub)) lcLedgerSub = mySubs[0].id;
   if (!classes.some(c => c.id === lcLedgerClass)) lcLedgerClass = (classes[0] || {}).id || '';
   const studs = DB.students.filter(s => s.classId === lcLedgerClass).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  return lcH('Grade ledger') + '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl"><div><label class="' + lcLbl + '">Subject</label><select class="' + lcInp + '" onchange="lcSet(\'ledSub\',this.value)">' + DB.subjects.map(s => '<option value="' + s.id + '"' + (s.id === lcLedgerSub ? ' selected' : '') + '>' + lcE(s.name) + '</option>').join('') + '</select></div>' +
+  return lcH('Grade ledger') + '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl"><div><label class="' + lcLbl + '">Subject</label><select class="' + lcInp + '" onchange="lcSet(\'ledSub\',this.value)">' + mySubs.map(s => '<option value="' + s.id + '"' + (s.id === lcLedgerSub ? ' selected' : '') + '>' + lcE(s.name) + '</option>').join('') + '</select></div>' +
     '<div><label class="' + lcLbl + '">Class</label><select class="' + lcInp + '" onchange="lcSet(\'ledClass\',this.value)">' + lcClassOptions(lcLedgerClass, classes) + '</select></div></div>' +
     (studs.length ? '<div class="' + lcCard + ' !p-0 overflow-x-auto"><table class="w-full"><tr><th class="' + lcTh + '">Student</th><th class="' + lcTh + '">Term 1</th><th class="' + lcTh + '">Term 2</th><th class="' + lcTh + '">Term 3</th><th class="' + lcTh + '">Average</th><th class="' + lcTh + '"></th></tr>' + studs.map(u => {
       const g = lcGrade(lcLedgerSub, u.id) || {};
