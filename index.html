@@ -542,7 +542,6 @@ html[data-calm="1"] *{animation-duration:.001ms!important;animation-iteration-co
               <div class="flex flex-wrap items-end justify-between gap-2 mb-4">
                 <div><h2 class="text-sm font-semibold">Students</h2><p id="stu-sub" class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Everyone in this class and their status for this session.</p></div>
               </div>
-              <div id="dash-np" class="mb-4"></div>
               <div id="activity-empty" class="hidden py-10 text-center text-slate-500 dark:text-slate-400">
                 <i data-lucide="users" class="w-7 h-7 mx-auto mb-2 text-slate-400"></i>
                 <p class="text-sm">No students are enrolled in this class yet.</p>
@@ -738,7 +737,6 @@ html[data-calm="1"] *{animation-duration:.001ms!important;animation-iteration-co
             <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>Camera off
           </div>
         </div>
-        <div id="scanner-np"><div class="rounded-lg border border-sky-200 dark:border-sky-900 bg-sky-50/60 dark:bg-sky-950/20 p-3"><p class="text-xs font-semibold text-sky-800 dark:text-sky-300">Students without a phone</p><p class="text-xs text-slate-600 dark:text-slate-300 mt-1">Choose a class above. Then you can mark the students who have no phone present here, and see each student's ID card.</p></div></div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
             <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
@@ -1352,6 +1350,7 @@ html[data-calm="1"] *{animation-duration:.001ms!important;animation-iteration-co
     <p class="text-xs text-slate-500 dark:text-slate-400" id="cover-name"></p>
     <label class="flex items-center gap-2 text-sm"><input id="cover-sub" type="checkbox" class="rounded"> This is a substitute teacher</label>
     <label class="flex items-center gap-2 text-sm"><input id="cover-leave" type="checkbox" class="rounded"> On leave</label>
+    <div id="cover-dates" class="hidden grid grid-cols-2 gap-2"><label class="text-xs text-slate-500 dark:text-slate-400">From<input id="cover-from" type="date" class="mt-1 w-full text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent px-2 py-1.5"></label><label class="text-xs text-slate-500 dark:text-slate-400">Until<input id="cover-to" type="date" class="mt-1 w-full text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent px-2 py-1.5"></label><p class="col-span-2 text-[11px] text-slate-500 dark:text-slate-400">One day only? Use the same date in both. Leave them empty to keep the leave going until you turn it off.</p></div>
     <div id="cover-subs-wrap" class="hidden">
       <p class="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Substitutes covering this teacher</p>
       <div id="cover-subs" class="max-h-56 overflow-y-auto space-y-1 rounded-lg border border-slate-200 dark:border-slate-800 p-2"></div>
@@ -1453,6 +1452,7 @@ function dbNoAuth() { const c = Object.assign({}, DB); delete c.auth; return c; 
 
 function normalizeDB() {
   if (!DB.settings) DB.settings = defaultDB().settings;
+  if (DB.removedIds && DB.removedIds.length) { const rm = new Set(DB.removedIds); if (DB.teachers) DB.teachers = DB.teachers.filter(x => !rm.has(x.id)); if (DB.students) DB.students = DB.students.filter(x => !rm.has(x.id)); }
   if (![1, 2, 3].includes(Number(DB.settings.currentTerm))) DB.settings.currentTerm = 2;
   if (!DB.settings.schoolYear) DB.settings.schoolYear = '2025-2026';
   DB.settings.currentTerm = Number(DB.settings.currentTerm);
@@ -1577,6 +1577,7 @@ function cloudKeepNewAccounts(remote) {
   DB.removedIds = DB.removedIds || [];
   const gone = new Set(DB.removedIds.concat(remote.removedIds || []));
   let added = false;
+  ['teachers', 'students'].forEach(k => { if (DB[k]) DB[k] = DB[k].filter(x => !gone.has(x.id)); });
   ['teachers', 'students'].forEach(k => {
     DB[k] = DB[k] || [];
     const have = new Set(DB[k].map(x => x.id));
@@ -2056,6 +2057,7 @@ function periodStatus(e, today, nowMin) {
   return nowMin < s0 ? 'later' : 'done';
 }
 function myPeriods() {
+  try { admLeaveTick(); } catch (e) {}
   const t = getMyTeacher(), out = [];
   if (!t) return out;
   const d = new Date(), today = DAY_NAMES[d.getDay()], nowMin = d.getHours() * 60 + d.getMinutes();
@@ -2385,23 +2387,15 @@ function renderDashboardStats() {
   const students = roster;
   document.getElementById('activity-empty').classList.toggle('hidden', rosterAll.length > 0);
   document.getElementById('activity-table').classList.toggle('hidden', rosterAll.length === 0);
-  const npNow = noPhoneToolsState();
   const dashRow = st => {
     if (st.dropped) return '<tr class="opacity-60"><td class="py-2.5">' + escapeHtml(st.name || '') + '</td><td class="py-2.5 text-slate-500 dark:text-slate-400">' + escapeHtml(st.studentId || '—') + '</td><td class="py-2.5"><span class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">Dropped</span></td><td class="py-2.5">—</td></tr>';
     const log = session ? activeLog(session.id, st.id) : null;
     const cur = log ? log.status : 'absent';
-    return '<tr><td class="py-2.5">' + escapeHtml(st.name || '') + (st.noPhone ? ' <span class="text-[10px] text-sky-600 dark:text-sky-400">no phone</span>' : '') + (npNow.ok ? '<div class="mt-1 flex gap-1"><button type="button" data-dcard="' + st.id + '" class="text-[10px] font-medium rounded px-1.5 py-0.5 border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-300">Card</button>' + npRowBtn(st.id, 'present', 'Present', cur === 'present', 'border-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400') + npRowBtn(st.id, 'late', 'Late', cur === 'late', 'border-amber-400 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400') + npRowBtn(st.id, 'absent', 'Absent', cur === 'absent' || cur === 'pending', 'border-slate-400 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200') + '</div>' : '') + '</td><td class="py-2.5 text-slate-500 dark:text-slate-400">' + escapeHtml(st.studentId || '—') +
+    return '<tr><td class="py-2.5">' + escapeHtml(st.name || '') + (st.noPhone ? ' <span class="text-[10px] text-sky-600 dark:text-sky-400">no phone</span>' : '') + '' + '</td><td class="py-2.5 text-slate-500 dark:text-slate-400">' + escapeHtml(st.studentId || '—') +
       '</td><td class="py-2.5">' + statusBadge(cur) + (log && log.vouchedBy ? '<span class="block text-[10px] text-slate-400 mt-0.5">vouched by ' + escapeHtml(studentName(log.vouchedBy)) + '</span>' : '') +
       '</td><td class="py-2.5 tabular-nums text-slate-500 dark:text-slate-400">' + (log ? formatTime(log.timestamp) : '—') + '</td></tr>';
   };
   body.innerHTML = stuGroups(rosterAll).map(gp => '<tr><td colspan="4" class="pt-4 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">' + gp.label + ' (' + gp.items.length + ')</td></tr>' + gp.items.map(dashRow).join('')).join('');
-  const npBox = document.getElementById('dash-np');
-  if (npBox && !npNow.ok) npBox.innerHTML = noPhoneHint(npNow.why);
-  else if (npBox) {
-    const npAll = students.filter(x => x.noPhone), npLeft = npAll.filter(x => !(session && activeLog(session.id, x.id))).length;
-    npBox.innerHTML = '<div class="rounded-lg border border-sky-200 dark:border-sky-900 bg-sky-50/60 dark:bg-sky-950/20 p-3"><p class="text-xs font-semibold text-sky-800 dark:text-sky-300">Students without a phone</p><p class="text-xs text-slate-600 dark:text-slate-300 mt-1">' + (npAll.length ? npAll.length + ' marked as no phone. ' + (npLeft ? npLeft + ' not yet marked.' : 'All of them are marked.') : 'No one is flagged yet. Open Live Scanner and tap "No phone" beside a student to flag them, or tap Present beside any student below.') + '</p>' +
-      (npAll.length ? npButtons(npAll.length) : '') + '</div>';
-  }
   const subj = session && session.subject ? session.subject : '';
   const cls = DB.classes.find(c => c.id === classId);
   document.getElementById('stu-sub').textContent = (cls ? classLabel(classId) : '') + (subj ? ' · ' + subj : '') + ' · ' + todayStr();
@@ -2747,7 +2741,6 @@ function renderAttendCard() {
   const npPanel = !npState.ok ? noPhoneHint(npState.why) : '<div class="rounded-lg border border-sky-200 dark:border-sky-900 bg-sky-50/60 dark:bg-sky-950/20 p-3 mb-3"><p class="text-xs font-semibold text-sky-800 dark:text-sky-300">Students without a phone</p><p class="text-xs text-slate-600 dark:text-slate-300 mt-1">' + (noPhone ? noPhone + ' marked as no phone. ' + (npLeft ? npLeft + ' not yet marked.' : 'All of them are marked.') : 'Tap "No phone" beside a student below to flag them. Then you can mark all of them present with one tap.') + '</p>' +
     (noPhone ? npButtons(noPhone) : '') + '</div>';
   h += npPanel;
-  const sn = document.getElementById('scanner-np'); if (sn) sn.innerHTML = npPanel;
   const btn = (s, st, label, on, cls) => '<button type="button" data-mark="' + s.id + '|' + st + '" class="text-[11px] font-medium rounded-md px-2 py-1 border ' + (on ? cls : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400') + '">' + label + '</button>';
   const attRow = s => {
     if (s.dropped) return '<div class="py-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 opacity-70"><div class="min-w-0 flex-1 basis-40"><p class="text-sm font-medium truncate">' + escapeHtml(s.name) + '</p><p class="text-[11px] text-slate-500 dark:text-slate-400">' + escapeHtml(s.studentId || '') + '</p></div><span class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">Dropped</span><button type="button" data-drop="' + s.id + '" class="text-[11px] font-medium rounded-md px-2 py-1 border border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400">Undo drop</button></div>';
@@ -9431,12 +9424,35 @@ function admBadges(rec) {
   const cover = (rec.subs || []).map(k => { const x = adAllTeachers().find(y => nameKey(y.name) === k); return x ? x.name : ''; }).filter(Boolean);
   let h = '';
   if (rec.isSub) h += '<span class="inline-block mt-1 mr-1 text-[11px] px-2 py-0.5 rounded-full bg-teal-100 dark:bg-teal-950/50 text-teal-800 dark:text-teal-200">Substitute</span>';
-  if (rec.onLeave) h += '<span class="inline-block mt-1 mr-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-200">On leave</span>' + (cover.length ? '<div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Covered by ' + escapeHtml(cover.join(', ')) + '</div>' : '<div class="text-[11px] text-rose-600 dark:text-rose-400 mt-0.5">No substitute assigned</div>');
+  if (rec.onLeave) h += '<span class="inline-block mt-1 mr-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-200">On leave</span>' + (admLeaveText(rec) ? '<span class="text-[11px] text-slate-500 dark:text-slate-400">' + escapeHtml(admLeaveText(rec)) + '</span>' : '') + (cover.length ? '<div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Covered by ' + escapeHtml(cover.join(', ')) + '</div>' : '<div class="text-[11px] text-rose-600 dark:text-rose-400 mt-0.5">No substitute assigned</div>');
   return h;
 }
 let coverRef = null;
 // A substitute takes over the absent teacher's subjects and sections: their periods are copied onto the substitute's schedule
 // (marked coverOf, so they are removed again when the substitute is unticked or the teacher is back).
+function admLeaveActive(rec) {
+  if (!rec || !rec.onLeave) return false;
+  const t = todayStr();
+  return !(rec.leaveFrom && t < rec.leaveFrom) && !(rec.leaveTo && t > rec.leaveTo);
+}
+function admLeaveText(rec) {
+  if (!rec.leaveFrom && !rec.leaveTo) return '';
+  const f = d => d ? new Date(d + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
+  return rec.leaveFrom && rec.leaveTo && rec.leaveFrom === rec.leaveTo ? f(rec.leaveFrom) : (rec.leaveFrom ? f(rec.leaveFrom) : 'now') + ' to ' + (rec.leaveTo ? f(rec.leaveTo) : 'until further notice');
+}
+// Covers switch on and off by date: once the leave is over (or has not started), the substitute loses the periods again.
+let admTickAt = 0;
+function admLeaveTick() {
+  if (Date.now() - admTickAt < 60000) return; admTickAt = Date.now();
+  if (!DB || !DB.teachers) return;
+  let changed = false;
+  adAllTeachers().filter(t => t.onLeave && (t.subs || []).length).forEach(t => {
+    const key = nameKey(t.name), act = admLeaveActive(t);
+    const have = (t.subs || []).some(k => { const x = adAllTeachers().find(y => nameKey(y.name) === k); return x && (x.schedule || []).some(e => e.coverOf === key); });
+    if (act !== have) { admCoverSync(t); changed = true; }
+  });
+  if (changed) saveDB();
+}
 function admCoverSource(absent) {
   const key = nameKey(absent.name), seen = new Set(), out = [];
   const add = e => { const k = [e.subject, e.day, e.start, e.end, (e.classIds || []).slice().sort().join(','), e.term].join('|'); if (!seen.has(k)) { seen.add(k); out.push(e); } };
@@ -9447,7 +9463,7 @@ function admCoverSource(absent) {
 }
 function admCoverSig(list) { return list.map(e => [e.subject, e.day, e.start, e.end, (e.classIds || []).slice().sort().join(','), e.term].join('|')).sort().join(';'); }
 function admCoverSync(absent) {
-  const key = nameKey(absent.name), want = new Set(absent.onLeave ? (absent.subs || []) : []);
+  const key = nameKey(absent.name), want = new Set(admLeaveActive(absent) ? (absent.subs || []) : []);
   const own = admCoverSource(absent);
   adAllTeachers().forEach(x => {
     if (x === absent) return;
@@ -9461,7 +9477,7 @@ function admCoverSync(absent) {
 // Keeps every substitute in step with the teacher on leave (for example after the school schedule is uploaded again).
 function admCoverResync() {
   let changed = false;
-  adAllTeachers().filter(t => t.onLeave && (t.subs || []).length).forEach(t => {
+  adAllTeachers().filter(t => admLeaveActive(t) && (t.subs || []).length).forEach(t => {
     const key = nameKey(t.name), own = admCoverSource(t), sig = admCoverSig(own);
     const stale = (t.subs || []).some(k => { const x = adAllTeachers().find(y => nameKey(y.name) === k); return x && admCoverSig((x.schedule || []).filter(e => e.coverOf === key)) !== sig; });
     if (stale) { admCoverSync(t); changed = true; }
@@ -9476,12 +9492,13 @@ document.addEventListener('click', ev => {
   document.getElementById('cover-name').textContent = rec.name || '';
   document.getElementById('cover-sub').checked = !!rec.isSub;
   document.getElementById('cover-leave').checked = !!rec.onLeave;
+  document.getElementById('cover-from').value = rec.leaveFrom || ''; document.getElementById('cover-to').value = rec.leaveTo || '';
   const me = nameKey(rec.name);
   const cands = adAllTeachers().filter(x => x !== rec && nameKey(x.name) !== me).sort((a, c) => (c.isSub ? 1 : 0) - (a.isSub ? 1 : 0) || adByName(a, c));
   const chosen = rec.subs || [];
   document.getElementById('cover-subs').innerHTML = cands.length ? cands.map(x => '<label class="flex items-center gap-2 text-sm py-1 px-1 rounded hover:bg-slate-50 dark:hover:bg-slate-800"><input type="checkbox" class="rounded cover-pick" value="' + escapeHtml(nameKey(x.name)) + '"' + (chosen.includes(nameKey(x.name)) ? ' checked' : '') + '><span class="flex-1 min-w-0 truncate">' + escapeHtml(x.name || 'Unnamed') + '</span>' + (x.isSub ? '<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-teal-100 dark:bg-teal-950/50 text-teal-800 dark:text-teal-200">Sub</span>' : '') + '</label>').join('') : '<p class="text-xs text-slate-500 dark:text-slate-400 p-2">No other teachers yet. Add a teacher first.</p>';
   document.getElementById('cover-note').textContent = 'Tick one or more substitutes. They get the same subjects and sections as this teacher, and lose them when unticked or when this teacher is back.';
-  const sync = () => document.getElementById('cover-subs-wrap').classList.toggle('hidden', !document.getElementById('cover-leave').checked);
+  const sync = () => { const on = document.getElementById('cover-leave').checked; document.getElementById('cover-subs-wrap').classList.toggle('hidden', !on); document.getElementById('cover-dates').classList.toggle('hidden', !on); };
   document.getElementById('cover-leave').onchange = sync; sync();
   openModal('modal-cover');
 });
@@ -9491,6 +9508,8 @@ document.getElementById('cover-form').addEventListener('submit', e => {
   const onLeave = document.getElementById('cover-leave').checked;
   rec.isSub = document.getElementById('cover-sub').checked;
   rec.onLeave = onLeave;
+  rec.leaveFrom = onLeave ? document.getElementById('cover-from').value : ''; rec.leaveTo = onLeave ? document.getElementById('cover-to').value : '';
+  if (rec.leaveFrom && rec.leaveTo && rec.leaveTo < rec.leaveFrom) { const q = rec.leaveFrom; rec.leaveFrom = rec.leaveTo; rec.leaveTo = q; }
   rec.subs = onLeave ? Array.from(document.querySelectorAll('#cover-subs .cover-pick:checked')).map(x => x.value) : [];
   if (onLeave && !rec.subs.length) toast(rec.name + ' is on leave with no substitute yet.', 'warning');
   const copied = admCoverSync(rec), names = rec.subs.map(k => { const x = adAllTeachers().find(y => nameKey(y.name) === k); return x ? x.name : ''; }).filter(Boolean);
@@ -9849,7 +9868,7 @@ function adLinkRec(rec, t) {
   (rec.schedule || []).forEach(e => { if (!t.schedule.some(x => x.id === e.id)) t.schedule.push(e); ensurePortalSubject(e.subject, t.id); });
   if ((rec.email && normEmail(rec.email) === normEmail(t.email)) || (rec.name && !/\s/.test((t.name || '').trim()))) { if (rec.name) t.name = rec.name; }
   rec.schedule = []; rec.accountId = t.id;
-  if (rec.isSub) t.isSub = true; if (rec.onLeave) t.onLeave = true; t.subs = Array.from(new Set((t.subs || []).concat(rec.subs || [])));
+  if (rec.isSub) t.isSub = true; if (rec.onLeave) { t.onLeave = true; t.leaveFrom = rec.leaveFrom || ''; t.leaveTo = rec.leaveTo || ''; } t.subs = Array.from(new Set((t.subs || []).concat(rec.subs || [])));
   if (rec.photo && !t.photo) t.photo = rec.photo;
   if (rec.advisoryClassId && !t.advisoryClassId) t.advisoryClassId = rec.advisoryClassId;
 }
@@ -9863,7 +9882,7 @@ function adAutoLink(t) {
 }
 function adUnlink(t) {
   const rec = adPeople().find(r => r.accountId === t.id); if (!rec) return;
-  rec.accountId = ''; rec.schedule = (t.schedule || []).filter(e => e.src === 'admin'); rec.isSub = !!t.isSub; rec.onLeave = !!t.onLeave; rec.subs = (t.subs || []).slice();
+  rec.accountId = ''; rec.schedule = (t.schedule || []).filter(e => !e.coverOf); rec.isSub = !!t.isSub; rec.onLeave = !!t.onLeave; rec.leaveFrom = t.leaveFrom || ''; rec.leaveTo = t.leaveTo || ''; rec.subs = (t.subs || []).slice();
   if (t.advisoryClassId) rec.advisoryClassId = t.advisoryClassId;
 }
 // The General Class Program is the authority: a teacher's classes, sections and times are taken from it, so teachers and students see the same thing.
