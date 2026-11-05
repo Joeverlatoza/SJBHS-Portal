@@ -1,5 +1,5 @@
 /* SJBHS Portal service worker: network-first so updates show right away; the app shell and libraries are kept for offline use. */
-const CACHE = 'attendly-v48';
+const CACHE = 'attendly-v50';
 const SHELL = ['./', './index.html'];
 // Libraries the page needs. They are saved on install so the portal still has its styling, icons and scanner in airplane mode.
 const LIBS = [

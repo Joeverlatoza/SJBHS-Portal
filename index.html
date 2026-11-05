@@ -336,6 +336,10 @@ html[data-calm="1"] *{animation-duration:.001ms!important;animation-iteration-co
             <label id="signup-idnum-label" class="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">Teacher ID</label>
             <input id="signup-idnum" type="text" class="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm px-3 py-2">
           </div>
+          <div id="signup-sex-wrap" class="hidden">
+            <label class="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1" for="signup-sex">Sex</label>
+            <select id="signup-sex" class="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm px-3 py-2"><option value="">Choose…</option><option value="M">Male</option><option value="F">Female</option></select>
+          </div>
           <div id="signup-class-wrap" class="hidden grid grid-cols-2 gap-3">
             <div>
               <label class="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1" for="signup-grade">Grade level</label>
@@ -935,6 +939,10 @@ html[data-calm="1"] *{animation-duration:.001ms!important;animation-iteration-co
               <div>
                 <label class="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">Class</label>
                 <select required id="sid-class" class="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm px-3 py-2"></select>
+              </div>
+              <div>
+                <label class="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">Sex</label>
+                <select id="sid-sex" class="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm px-3 py-2"><option value="">Not set</option><option value="M">Male</option><option value="F">Female</option></select>
               </div>
               <div>
                 <label class="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">Photo (optional)</label>
@@ -3568,6 +3576,7 @@ function renderStudentIdView() {
     document.getElementById('sid-studentid').value = st.studentId || '';
     document.getElementById('sid-section').value = st.section || '';
     document.getElementById('sid-class').value = st.classId || '';
+    document.getElementById('sid-sex').value = st.sex || '';
     renderBadge(st);
   } else {
     showIdCardEmpty();
@@ -3609,7 +3618,7 @@ document.getElementById('student-id-form').addEventListener('submit', e => {
       student = { id: myId, createdAt: new Date().toISOString() };
       DB.students.push(student);
     }
-    student.name = name; student.studentId = studentId; student.section = section; student.classId = classId;
+    student.name = name; student.studentId = studentId; student.section = section; student.classId = classId; student.sex = document.getElementById('sid-sex').value;
     if (photoDataUrl) student.photo = photoDataUrl;
     if (DB.auth) DB.auth.name = name;
     if (!saveDB()) return;
@@ -3901,6 +3910,7 @@ function setLoginRole(role) {
   document.getElementById('signup-idnum-label').textContent = 'Student ID / LRN';
   document.getElementById('signup-idnum-wrap').classList.toggle('hidden', role === 'teacher');
   document.getElementById('signup-idnum').required = role !== 'teacher';
+  document.getElementById('signup-sex-wrap').classList.toggle('hidden', role === 'teacher'); document.getElementById('signup-sex').required = role !== 'teacher';
   document.getElementById('reset-idnum-wrap').classList.toggle('hidden', role === 'teacher');
   document.getElementById('reset-idnum-label').textContent = role === 'teacher' ? 'Teacher ID' : 'Student ID / LRN';
   document.getElementById('admin-access-link-wrap').classList.toggle('hidden', role !== 'teacher');
@@ -3970,6 +3980,7 @@ function finishLogin(email, name, idNumber, classId) {
   if (!account.email) account.email = email;
   if (account.emailPending) delete account.emailPending;
   if (loginRole === 'student' && classId && !account.classId) { account.classId = classId; const cc = DB.classes.find(x => x.id === classId); account.section = cc ? (cc.section || '') : ''; }
+  if (loginRole === 'student') { let sx = ''; try { sx = localStorage.getItem('attendly_sex_' + email) || ''; if (sx) localStorage.removeItem('attendly_sex_' + email); } catch (e) {} if (sx === 'M' || sx === 'F') account.sex = sx; }
   if (loginRole === 'teacher') adAutoLink(account);
   DB.auth = { role: loginRole, userId: account.id, name: account.name, loginAt: new Date().toISOString() };
   rememberLogin({ email, role: loginRole, method: loginMethod, name: account.name });
@@ -4071,6 +4082,8 @@ document.getElementById('signup-form').addEventListener('submit', async e => {
   const idNumber = document.getElementById('signup-idnum').value.trim();
   let classId = '';
   if (loginRole === 'student') { classId = document.getElementById('signup-section').value; if (!classId) { toast('Choose your grade level and section.', 'warning'); return; } }
+  const sexPick = loginRole === 'student' ? document.getElementById('signup-sex').value : '';
+  if (loginRole === 'student' && !sexPick) { toast('Choose Male or Female.', 'warning'); return; }
   const pw = document.getElementById('signup-password').value;
   const pw2 = document.getElementById('signup-password-confirm').value;
   if (!name || !email || (loginRole === 'student' && !idNumber)) { toast(loginRole === 'teacher' ? 'Fill in your name and email.' : 'Fill in your name, email and ID number.', 'warning'); return; }
@@ -4083,8 +4096,9 @@ document.getElementById('signup-form').addEventListener('submit', async e => {
   if (roleConflict(email)) return;
   const byId = idNumber ? list.find(a => (a[idKey] || '').trim().toLowerCase() === idNumber.toLowerCase()) : null;
   if (byId && byId.email) { toast('That ID is already registered to an account. Log in instead.', 'warning'); return; }
-  const r = await sb.auth.signUp({ email, password: pw, options: { data: { name }, emailRedirectTo: location.origin + location.pathname } });
+  const r = await sb.auth.signUp({ email, password: pw, options: { data: { name, sex: sexPick }, emailRedirectTo: location.origin + location.pathname } });
   if (r.error) { toast(authErrText(r.error), 'error'); return; }
+  try { if (sexPick) localStorage.setItem('attendly_sex_' + email, sexPick); } catch (e) {}
   if (r.data.user && r.data.user.identities && !r.data.user.identities.length) { toast('An account with that email already exists. Log in instead.', 'warning'); return; }
   if (!r.data.session) { toast('Check your email to confirm your account, then log in.', 'success'); setAuthMode('login'); return; }
   if (byId && !byId.preReg) byId.name = name;
@@ -9401,7 +9415,7 @@ function renderStudentDirectory() {
       const rows = sec.rows.filter(hit); if (!rows.length) return '';
       const na = sec.rows.filter(x => !x.email).length, open = q || stuOpen.has(key);
       return '<details data-stu-sec="' + key + '"' + (open ? ' open' : '') + ' class="border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden"><summary class="flex items-center justify-between gap-2 px-3 py-2.5 cursor-pointer bg-slate-50 dark:bg-slate-800/50 select-none"><span class="text-sm font-semibold">' + escapeHtml(sec.label) + '</span><span class="text-xs text-slate-500 dark:text-slate-400">' + sec.rows.length + ' student' + (sec.rows.length === 1 ? '' : 's') + (na ? ' · ' + na + ' no account' : '') + '</span></summary>' +
-        '<ul class="divide-y divide-slate-100 dark:divide-slate-800">' + rows.map((r, n) => rowH(r, n + 1)).join('') + '</ul></details>';
+        stuGroups(rows).map(gp => '<p class="px-3 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">' + gp.label + ' (' + gp.items.length + ')</p><ul class="divide-y divide-slate-100 dark:divide-slate-800">' + gp.items.map((r, n) => rowH(r, n + 1)).join('') + '</ul>').join('') + '</details>';
     }).join('');
     if (secs) html += '<div><h3 class="text-xs font-semibold uppercase tracking-wide text-indigo-600 dark:text-indigo-400 mb-2">' + escapeHtml(gName) + ' · ' + Array.from(g.secs.values()).reduce((n, x) => n + x.rows.length, 0) + '</h3><div class="space-y-2">' + secs + '</div></div>';
   });
