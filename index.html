@@ -1295,6 +1295,31 @@ html[data-calm="1"] *{animation-duration:.001ms!important;animation-iteration-co
 </div>
 
 <!-- EDIT TEACHER MODAL -->
+<div id="modal-student-card" class="hidden fixed inset-0 z-40 bg-slate-950/40 flex items-center justify-center p-4">
+  <div class="bg-white dark:bg-slate-900 rounded-xl shadow-xl w-full max-w-sm p-5">
+    <div id="sc-card" class="id-card-bg text-white rounded-2xl p-5 w-full shadow-lg">
+      <div class="flex items-center justify-between mb-4">
+        <p class="text-[11px] tracking-wide text-indigo-200" id="sc-card-school">San Juan Baño High School</p>
+      </div>
+      <div class="flex items-center gap-3 mb-4">
+        <img id="sc-card-photo" class="w-14 h-14 rounded-full object-cover bg-indigo-400 border-2 border-white/30" src="" alt="">
+        <div class="min-w-0">
+          <p id="sc-card-name" class="font-semibold leading-tight"></p>
+          <p id="sc-card-class" class="text-xs text-indigo-200"></p>
+        </div>
+      </div>
+      <div class="flex items-end justify-between">
+        <div><p class="text-[10px] text-indigo-200">Student ID / LRN</p><p id="sc-card-id" class="text-sm font-medium tabular-nums"></p></div>
+        <div id="sc-card-qr" class="bg-white p-1.5 rounded-lg"></div>
+      </div>
+    </div>
+    <p id="sc-card-status" class="text-xs text-slate-500 dark:text-slate-400 mt-3"></p>
+    <div class="flex gap-2 justify-end mt-3">
+      <button type="button" data-close-modal="modal-student-card" class="text-sm font-medium border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800">Close</button>
+      <button type="button" id="sc-card-present" class="text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-3 py-2">Mark present</button>
+    </div>
+  </div>
+</div>
 <div id="modal-add-teacher" class="hidden fixed inset-0 z-40 bg-slate-950/40 flex items-center justify-center p-4">
   <form id="add-teacher-form" class="bg-white dark:bg-slate-900 rounded-xl shadow-xl w-full max-w-sm p-5 space-y-3">
     <h3 class="text-sm font-semibold">Add teacher</h3>
@@ -2673,7 +2698,7 @@ function renderAttendCard() {
   const cut = possibleCutting(session);
   if (pending.length > lastPendingCount) toast(pending.length + ' classmate check-in' + (pending.length === 1 ? ' is' : 's are') + ' waiting for your confirmation.', 'warning');
   lastPendingCount = pending.length;
-  const noPhone = roster.filter(s => s.noPhone).length;
+  const noPhoneList = roster.filter(s => s.noPhone), noPhone = noPhoneList.length, npLeft = noPhoneList.filter(s => !(session && activeLog(session.id, s.id))).length;
   let h = '<div class="mb-3"><h2 class="text-sm font-semibold">Class list</h2><p class="text-xs text-slate-500 dark:text-slate-400">Mark students by hand, record cutting, and confirm classmate check-ins. ' + (noPhone ? noPhone + ' without a phone.' : '') + '</p></div>';
   if (pending.length) {
     h += '<div class="rounded-lg border border-sky-200 dark:border-sky-900 bg-sky-50/60 dark:bg-sky-950/20 p-3 mb-3"><p class="text-xs font-semibold text-sky-800 dark:text-sky-300 mb-2">Waiting for your confirmation (' + pending.length + ')</p>' +
@@ -2686,13 +2711,15 @@ function renderAttendCard() {
       '<p class="text-xs text-slate-600 dark:text-slate-300 mt-1">In an earlier class today but not in this one: ' + escapeHtml(cut.map(s => s.name).join(', ')) + '</p>' +
       '<button type="button" data-cut-all="1" class="mt-2 text-xs font-medium bg-rose-600 text-white rounded-md px-3 py-1.5">Mark all as cutting</button></div>';
   }
+  h += '<div class="rounded-lg border border-sky-200 dark:border-sky-900 bg-sky-50/60 dark:bg-sky-950/20 p-3 mb-3"><p class="text-xs font-semibold text-sky-800 dark:text-sky-300">Students without a phone</p><p class="text-xs text-slate-600 dark:text-slate-300 mt-1">' + (noPhone ? noPhone + ' marked as no phone. ' + (npLeft ? npLeft + ' not yet marked.' : 'All of them are marked.') : 'Tap "No phone" beside a student below to flag them. Then you can mark all of them present with one tap.') + '</p>' +
+    '<button type="button" data-np-present="1" ' + (npLeft ? '' : 'disabled ') + 'class="mt-2 text-xs font-medium bg-emerald-600 text-white rounded-md px-3 py-1.5 disabled:opacity-50">Mark present: students without a phone' + (npLeft ? ' (' + npLeft + ')' : '') + '</button></div>';
   const btn = (s, st, label, on, cls) => '<button type="button" data-mark="' + s.id + '|' + st + '" class="text-[11px] font-medium rounded-md px-2 py-1 border ' + (on ? cls : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400') + '">' + label + '</button>';
   h += roster.length ? '<div class="divide-y divide-slate-100 dark:divide-slate-800">' + roster.map(s => {
     const l = session ? activeLog(session.id, s.id) : null, cur = l ? l.status : 'absent', rej = rejectedVouchCount(s.id);
     return '<div class="py-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5"><div class="min-w-0 flex-1 basis-40"><p class="text-sm font-medium truncate">' + escapeHtml(s.name) + '</p><p class="text-[11px] text-slate-500 dark:text-slate-400">' + escapeHtml(s.studentId || '') +
       (l && l.vouchedBy ? ' · vouched by ' + escapeHtml(studentName(l.vouchedBy)) : '') + (rej ? ' · <span class="text-amber-600 dark:text-amber-400">' + rej + ' rejected vouch' + (rej === 1 ? '' : 'es') + '</span>' : '') + '</p></div>' +
       statusBadge(cur) +
-      '<div class="flex items-center gap-1">' + btn(s, 'present', 'Present', cur === 'present', 'border-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400') +
+      '<div class="flex items-center gap-1"><button type="button" data-card="' + s.id + '" title="Show this student\'s ID card" class="text-[11px] font-medium rounded-md px-2 py-1 border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-300">Card</button>' + btn(s, 'present', 'Present', cur === 'present', 'border-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400') +
       btn(s, 'late', 'Late', cur === 'late', 'border-amber-400 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400') +
       btn(s, 'cutting', 'Cutting', cur === 'cutting', 'border-rose-400 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400') +
       btn(s, 'absent', 'Absent', cur === 'absent' || cur === 'pending', 'border-slate-400 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200') +
@@ -2701,7 +2728,38 @@ function renderAttendCard() {
   el.innerHTML = h;
   refreshIcons();
 }
+let cardStudentId = null;
+function showStudentCard(id) {
+  const st = DB.students.find(x => x.id === id); if (!st) return;
+  cardStudentId = id;
+  const cls = DB.classes.find(c => c.id === st.classId);
+  document.getElementById('sc-card-school').textContent = DB.settings.schoolName || 'San Juan Baño High School';
+  document.getElementById('sc-card-name').textContent = st.name || '';
+  document.getElementById('sc-card-class').textContent = (cls ? cls.name : 'Unassigned class') + (st.section ? ' · ' + st.section : '');
+  document.getElementById('sc-card-id').textContent = st.studentId || '';
+  document.getElementById('sc-card-photo').src = st.photo || initialsAvatar(st.name || '?');
+  document.getElementById('sc-card-qr').innerHTML = '';
+  try { renderStudentQR('sc-card-qr', st); } catch (e) {}
+  const session = curPeriod.classId ? findSession(curPeriod.classId, curPeriod.slotId) : null, l = session ? activeLog(session.id, id) : null;
+  document.getElementById('sc-card-status').textContent = 'This class: ' + (l ? l.status : 'not marked yet') + (st.noPhone ? ' · no phone' : '');
+  openModal('modal-student-card');
+}
+document.getElementById('sc-card-present').addEventListener('click', () => {
+  if (cardStudentId) setAttendance(cardStudentId, 'present');
+  closeModal('modal-student-card');
+  toast('Marked present.', 'success');
+});
+function markNoPhonePresent() {
+  if (!getMyTeacher() || !curPeriod.classId) return;
+  const session = getOrCreateSession(curPeriod.classId, curPeriod.slotId);
+  const list = DB.students.filter(s => s.classId === curPeriod.classId && s.noPhone && !activeLog(session.id, s.id));
+  list.forEach(s => logAttendance(session, s, 'present', 'teacher'));
+  saveDB(); renderAttendCard(); renderDashboardStats();
+  toast(list.length ? list.length + ' student' + (list.length === 1 ? '' : 's') + ' without a phone marked present.' : 'Nobody left to mark.', list.length ? 'success' : 'info');
+}
 document.getElementById('attend-card').addEventListener('click', ev => {
+  if (ev.target.closest('[data-np-present]')) { markNoPhonePresent(); return; }
+  const cb = ev.target.closest('[data-card]'); if (cb) { showStudentCard(cb.dataset.card); return; }
   const m = ev.target.closest('[data-mark]'); if (m) { const a = m.dataset.mark.split('|'); setAttendance(a[0], a[1]); return; }
   const n = ev.target.closest('[data-noph]');
   if (n) { const s = DB.students.find(x => x.id === n.dataset.noph); if (s) { s.noPhone = !s.noPhone; saveDB(); renderAttendCard(); } return; }
