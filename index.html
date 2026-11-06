@@ -43,7 +43,14 @@
 <script>
   (function () {
     var k = window.__fitK || 1;
-    var theme = { extend: { fontFamily: { sans: ['Inter','system-ui','-apple-system','sans-serif'] } } };
+    var pine = { 50: '#fbf1f2', 100: '#f5dde0', 200: '#e9bcc2', 300: '#d78f99', 400: '#d9808c', 500: '#a8364a', 600: '#7b1e2b', 700: '#651824', 800: '#51131d', 900: '#3f0f17', 950: '#260910' };
+    var neutral = { 50: '#f8f6f5', 100: '#f1eeed', 200: '#e5e1df', 300: '#d0cac8', 400: '#9d9795', 500: '#6e6866', 600: '#524d4b', 700: '#3c3836', 800: '#272322', 900: '#1a1716', 950: '#110e0e' };
+    var theme = { extend: {
+      fontFamily: { sans: ['Inter','system-ui','-apple-system','sans-serif'] },
+      colors: { indigo: pine, teal: pine, slate: neutral },
+      borderRadius: { lg: '6px', xl: '8px', '2xl': '10px' },
+      boxShadow: { sm: '0 1px 2px rgba(0,0,0,.04)', DEFAULT: '0 1px 2px rgba(0,0,0,.06)', md: '0 2px 6px rgba(0,0,0,.06)', lg: '0 4px 14px rgba(0,0,0,.08)', xl: '0 8px 24px rgba(0,0,0,.10)', '2xl': '0 12px 32px rgba(0,0,0,.12)' }
+    } };
     if (k > 1) theme.screens = { sm: Math.round(640 * k) + 'px', md: Math.round(768 * k) + 'px', lg: Math.round(1024 * k) + 'px', xl: Math.round(1280 * k) + 'px', '2xl': Math.round(1536 * k) + 'px' };
     tailwind.config = { darkMode: 'class', theme: theme };
   })();
@@ -117,7 +124,7 @@ html[data-calm="1"] *{animation-duration:.001ms!important;animation-iteration-co
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: rgb(148 163 184 / 0.4); border-radius: 999px; }
   .dark ::-webkit-scrollbar-thumb { background: rgb(100 116 139 / 0.5); }
-  :focus-visible { outline: 2px solid #4f46e5; outline-offset: 2px; border-radius: 4px; }
+  :focus-visible { outline: 2px solid #7b1e2b; outline-offset: 2px; border-radius: 4px; }
   @keyframes toast-in { from { opacity:0; transform: translateY(8px) scale(.98); } to { opacity:1; transform: translateY(0) scale(1); } }
   .toast-anim { animation: toast-in .18s ease-out; }
   @keyframes pulse-dot { 0%,100% { opacity:1; } 50% { opacity:.35; } }
@@ -138,16 +145,27 @@ html[data-calm="1"] *{animation-duration:.001ms!important;animation-iteration-co
   .view-section { display: none; }
   .view-section.active { display: block; }
   input[type="checkbox"].switch { appearance: none; width: 36px; height: 20px; border-radius: 999px; background: #cbd5e1; position: relative; cursor: pointer; transition: background .15s; flex-shrink:0; }
-  input[type="checkbox"].switch:checked { background: #4f46e5; }
+  input[type="checkbox"].switch:checked { background: #7b1e2b; }
   input[type="checkbox"].switch::after { content:''; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:999px; background:white; transition: transform .15s; }
   input[type="checkbox"].switch:checked::after { transform: translateX(16px); }
-  body { background-image: radial-gradient(1200px 500px at 10% -10%, rgba(99,102,241,.14), transparent 60%), radial-gradient(900px 400px at 100% 0%, rgba(14,165,233,.12), transparent 60%); background-attachment: fixed; }
-  .dark body { background-image: radial-gradient(1200px 500px at 10% -10%, rgba(99,102,241,.22), transparent 60%), radial-gradient(900px 400px at 100% 0%, rgba(14,165,233,.14), transparent 60%); }
-  .rounded-xl { border-radius: 1rem; }
-  .bg-white.rounded-xl, .dark .bg-slate-900.rounded-xl { box-shadow: 0 8px 24px -12px rgba(15,23,42,.18); }
-  button { transition: transform .12s ease, background-color .15s ease, box-shadow .15s ease; }
-  button:active { transform: scale(.97); }
-  .bg-indigo-600 { background-image: linear-gradient(135deg,#4f46e5,#7c3aed); }
+  button { transition: background-color .12s ease, border-color .12s ease, color .12s ease, opacity .12s ease; }
+  /* ---- design layer: solid surfaces, hairline borders, small radii, no decorative gradients ---- */
+  body { background-image: none; letter-spacing: -0.003em; line-height: 1.5; }
+  h1, h2, h3 { letter-spacing: -0.012em; }
+  .dark :focus-visible { outline-color: #d9808c; }
+  .dark input[type="checkbox"].switch:checked { background: #a8364a; }
+  [class*="bg-gradient-to-"] { background-image: none !important; background-color: #f6f1f1; }
+  .dark [class*="bg-gradient-to-"] { background-color: #1c1517; }
+  .view-section.active, .view-section.active > *, [id^="cn-p-"]:not(.hidden) { animation: none !important; }
+  .view-section.active { animation: fadein .15s ease-out !important; }
+  .nav-btn:hover, .nav-btn-m:hover { transform: none; }
+  button:not(:disabled):active, button:active { transform: none; opacity: .85; }
+  .cn-lift:hover { box-shadow: none; border-color: #d78f99; }
+  .cn-field { background: transparent; border: 1px solid rgba(148,163,158,.35); }
+  button.rounded-full[class*="px-"]:not(#help-fab), a.rounded-full[class*="px-"] { border-radius: 6px; }
+  span.rounded-full[class*="px-"] { border-radius: 6px; }
+  .id-card-bg { background: #4a121c; }
+  .scan-flash { animation: none; outline: 2px solid rgba(16,185,129,.6); }
 </style>
 </head>
 <body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 antialiased">
@@ -542,7 +560,8 @@ html[data-calm="1"] *{animation-duration:.001ms!important;animation-iteration-co
           </div>
 
           <div class="space-y-6">
-            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+            <button type="button" data-open-records class="w-full text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 text-sm font-medium text-indigo-600 dark:text-indigo-400">Attendance records &rarr;<span class="block text-xs font-normal text-slate-500 dark:text-slate-400 mt-0.5">See saved days for your grade and section.</span></button>
+            <div class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
               <div class="flex flex-wrap items-end justify-between gap-2 mb-4">
                 <div><h2 class="text-sm font-semibold">Students</h2><button type="button" data-open-records class="mt-1 text-xs font-medium text-indigo-600 dark:text-indigo-400">Attendance records &rarr;</button><p id="stu-sub" class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Everyone in this class and their status for this session.</p></div>
               </div>
@@ -834,7 +853,7 @@ html[data-calm="1"] *{animation-duration:.001ms!important;animation-iteration-co
           <p id="scanner-feed-empty" class="text-sm text-slate-500 dark:text-slate-400 py-4 text-center">Scanned students will appear here.</p>
         </div>
 
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+        <div class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
           <div class="mb-4"><h2 class="text-sm font-semibold">Students</h2><button type="button" data-open-records class="mt-1 text-xs font-medium text-indigo-600 dark:text-indigo-400">Attendance records &rarr;</button><p id="sc-stu-sub" class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Everyone in this class and their status for this session.</p></div>
           <div id="sc-activity-empty" class="hidden py-10 text-center text-slate-500 dark:text-slate-400">
             <i data-lucide="users" class="w-7 h-7 mx-auto mb-2 text-slate-400"></i>
@@ -2830,7 +2849,7 @@ function renderAttendCard() {
   if (pending.length > lastPendingCount) toast(pending.length + ' classmate check-in' + (pending.length === 1 ? ' is' : 's are') + ' waiting for your confirmation.', 'warning');
   lastPendingCount = pending.length;
   const noPhoneList = roster.filter(s => s.noPhone), noPhone = noPhoneList.length, npLeft = noPhoneList.filter(s => !(session && activeLog(session.id, s.id))).length;
-  let h = '<div class="mb-3"><h2 class="text-sm font-semibold">Class list</h2><p class="text-xs text-slate-500 dark:text-slate-400">Mark students by hand, record cutting, and confirm classmate check-ins. ' + (noPhone ? noPhone + ' without a phone.' : '') + '</p></div>';
+  let h = '<div class="mb-3"><h2 class="text-sm font-semibold">Class list</h2><button type="button" data-open-records class="mt-1 text-xs font-medium text-indigo-600 dark:text-indigo-400">Attendance records &rarr;</button><p class="text-xs text-slate-500 dark:text-slate-400">Mark students by hand, record cutting, and confirm classmate check-ins. ' + (noPhone ? noPhone + ' without a phone.' : '') + '</p></div>';
   if (pending.length) {
     h += '<div class="rounded-lg border border-sky-200 dark:border-sky-900 bg-sky-50/60 dark:bg-sky-950/20 p-3 mb-3"><p class="text-xs font-semibold text-sky-800 dark:text-sky-300 mb-2">Waiting for your confirmation (' + pending.length + ')</p>' +
       pending.map(l => '<div class="flex items-center gap-2 py-1.5"><p class="flex-1 min-w-0 text-sm"><b>' + escapeHtml(studentName(l.studentId)) + '</b> <span class="text-slate-500 dark:text-slate-400">vouched by ' + escapeHtml(studentName(l.vouchedBy)) + (rejectedVouchCount(l.vouchedBy) ? ' · ' + rejectedVouchCount(l.vouchedBy) + ' rejected before' : '') + '</span></p>' +
@@ -3554,7 +3573,7 @@ function deleteStudent(studentId) {
 function initialsAvatar(name) {
   const canvas = document.createElement('canvas'); canvas.width = 112; canvas.height = 112;
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#6366f1'; ctx.beginPath(); ctx.arc(56, 56, 56, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#7b1e2b'; ctx.beginPath(); ctx.arc(56, 56, 56, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#ffffff'; ctx.font = '600 42px Inter, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   const initials = (name || '').split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
   ctx.fillText(initials || '?', 56, 60);
@@ -8165,7 +8184,7 @@ function cnStopCalm() { clearInterval(cn.calm.timer); cn.calm.timer = null; cons
 
 /* ---- Music (Spotify-style player over the YouTube player API) ---- */
 const SP_CAT = { '77ZozI0rw7w': 'calm', '_4kHxtiuML0': 'focus', 'xRcWlA1I9z0': 'focus', '9Zq79uu_o5E': 'calm', 'tNjOqzkJ2CE': 'sleep', 'Pg6t-HMj2jg': 'calm', '1ZYbU82GVz4': 'sleep', 'I3OJUwILelU': 'focus', 'z-qigE1ym40': 'sleep' };
-const SP_GRAD = [['#8b5cf6', '#6366f1'], ['#0ea5e9', '#06b6d4'], ['#f59e0b', '#f97316'], ['#14b8a6', '#10b981'], ['#6366f1', '#3b82f6'], ['#ec4899', '#f43f5e'], ['#10b981', '#0d9488'], ['#f97316', '#ef4444'], ['#06b6d4', '#0ea5e9']];
+const SP_GRAD = [['#7b1e2b'], ['#2f6f8f'], ['#9a6b1f'], ['#5b6b3a'], ['#4a5d7a'], ['#8a4a5a'], ['#2c7a6d'], ['#8a5230'], ['#3f6f7a']];
 const SP_ICON = { calm: 'waves', focus: 'book-open', sleep: 'moon' };
 const sp = { cat: 'all', idx: -1, playing: false, shuffle: false, repeat: false, player: null, apiLoading: false, cbs: [], tick: null, errs: 0, timer: null, until: 0, state: 'idle' };
 function spBody() {
@@ -8203,7 +8222,7 @@ document.addEventListener('click', ev => {
 });
 function spVis() { return CN_TRACKS.map((t, i) => i).filter(i => sp.cat === 'all' || SP_CAT[CN_TRACKS[i].id] === sp.cat); }
 function spFmt(sec) { sec = Math.max(0, Math.floor(sec || 0)); return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'); }
-function spCover(i, size, extra) { const g = SP_GRAD[i % SP_GRAD.length], ic = SP_ICON[SP_CAT[CN_TRACKS[i].id]] || 'music'; return '<span class="' + size + ' rounded-lg shrink-0 flex items-center justify-center text-white ' + (extra || '') + '" style="background:linear-gradient(135deg,' + g[0] + ',' + g[1] + ')"><i data-lucide="' + ic + '" class="w-1/2 h-1/2"></i></span>'; }
+function spCover(i, size, extra) { const g = SP_GRAD[i % SP_GRAD.length], ic = SP_ICON[SP_CAT[CN_TRACKS[i].id]] || 'music'; return '<span class="' + size + ' rounded-lg shrink-0 flex items-center justify-center text-white ' + (extra || '') + '" style="background:' + g[0] + '"><i data-lucide="' + ic + '" class="w-1/2 h-1/2"></i></span>'; }
 function spShell() {
   return '<style>@keyframes spEq{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}.sp-eq i{display:inline-block;width:3px;height:14px;background:#0d9488;border-radius:2px;transform-origin:bottom;animation:spEq .9s ease-in-out infinite}.sp-eq i:nth-child(2){animation-delay:.2s}.sp-eq i:nth-child(3){animation-delay:.4s}.sp-eq.off i{animation:none;transform:scaleY(.3)}@media (prefers-reduced-motion:reduce){.sp-eq i{animation:none}}#sp-seek{accent-color:#0d9488}body.sp-active #help-fab,body.sp-active #mc-fab{bottom:6.25rem!important}body.sp-active #mc-panel{bottom:10.5rem!important}</style>' +
     '<div id="sp-root" class="' + CN_CARD.replace(' p-5', '') + ' !p-0 overflow-hidden">' +
@@ -9013,7 +9032,7 @@ function stuFromRows(rows, hint) {
     const iLast = lc.findIndex(t => /^(last|sur|family)\s*name|^surname/.test(t)), iFirst = lc.findIndex(t => /^(first|given)\s*name/.test(t));
     if (iL >= 0 && (iN >= 0 || (iLast >= 0 && iFirst >= 0))) {
       hdr = i; cL = iL; cN = iLast >= 0 && iFirst >= 0 ? -1 : iN; cLast = iLast; cFirst = iFirst; cMid = lc.findIndex(t => /^middle/.test(t));
-      cG = lc.findIndex(t => /^(grade|year)( level)?$/.test(t)); cS = lc.findIndex(t => /^section$/.test(t)); cSx = lc.findIndex(t => /^(sex|gender)$/.test(t)); break;
+      cG = lc.findIndex(t => /^(grade|year)( level)?$/.test(t)); cS = lc.findIndex(t => /^section$/.test(t)); cSx = lc.findIndex(t => /^(sex|gender)$/.test(t)); if (cN >= 0) { const hs = /^(female|male|boys?|girls?)\b/.exec(lc[cN]); if (hs) curSex = stuSexOf(hs[1]); } break;
     }
     r.forEach((c, j) => {
       const t = String(c == null ? '' : c).trim(); if (!t) return;
@@ -9065,8 +9084,9 @@ function stuFromPdf(pages, hint) {
     if (!adviser) { const a = /advis[eo]r\s*[:：]?\s*(.+)$/i.exec(t); if (a) adviser = a[1].trim(); }
     if (!label && it.s.length < 40) { const g = /^(?:grade\s*)?(\d{1,2})\s*[-–—]\s*([A-Za-zñÑ]+)$/i.exec(t); if (g && Number(g[1]) >= 7 && Number(g[1]) <= 12) label = g[1] + ' - ' + g[2]; }
   });
-  const rows = [], skipped = [];
+  const rows = [], skipped = []; let pdfSex = '';
   pages.forEach(items => {
+    const heads = items.filter(it => /^(male|female)\s*(students?)?$/i.test(it.s.trim())).map(it => ({ y: it.y, sx: stuSexOf(it.s.trim().split(/\s+/)[0]) }));
     const named = items.filter(it => /^[A-Za-zñÑ.'’\- ]+,\s*\S/.test(it.s.trim()));
     if (!named.length) return;
     const x0 = Math.min.apply(null, named.map(it => it.x));
@@ -9088,7 +9108,9 @@ function stuFromPdf(pages, hint) {
       let lrn = s.main; if (lrn.length < 12 && s.tail) lrn = (lrn + s.tail); lrn = stuLrn(lrn);
       if (!nm) return;
       if (!lrn) { skipped.push(nm); return; }
-      rows.push({ name: nm, lrn });
+      let hb = null; heads.forEach(h => { if (h.y >= a.y - 2 && (!hb || h.y - a.y < hb.y - a.y)) hb = h; });
+      if (hb) pdfSex = hb.sx;
+      rows.push({ name: nm, lrn, sex: pdfSex });
     });
   });
   if (!rows.length) {
