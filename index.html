@@ -30,10 +30,11 @@
     if (touch && sw <= 900 && iw > sw * 1.25) {
       var k = iw / sw;
       window.__fitK = k;
+      /* Scale with the root font size (every size in the app is rem-based) instead of CSS zoom.
+         CSS zoom makes taps land in the wrong place in phone browsers' desktop mode, so nothing could be pressed. */
       var d = document.documentElement;
-      d.style.zoom = k;
       d.style.setProperty('--fit-k', k);
-      d.classList.add('fit-zoom');
+      d.classList.add('fit-font');
       window.addEventListener('orientationchange', function () { location.reload(); });
     }
   } catch (e) {}
@@ -110,6 +111,7 @@ html[data-calm="1"] *{animation-duration:.001ms!important;animation-iteration-co
 .cn-pop{animation:cnpop .35s ease-out both}
 @media (prefers-reduced-motion:reduce){.cn-bub,.cn-pop{animation:none}}
   :root { color-scheme: light dark; }
+  html.fit-font { font-size: calc(16px * var(--fit-k)); } html.fit-font[data-tsize="1"] { font-size: calc(18px * var(--fit-k)); } html.fit-font[data-tsize="2"] { font-size: calc(20px * var(--fit-k)); }
   @supports (height: 100dvh) { #app.h-screen, #app { height: 100dvh; } html.fit-zoom, .fit-zoom body { height: 100dvh; } }
   .fit-zoom #app, .fit-zoom .h-screen { height: calc(100vh / var(--fit-k)); }
   @supports (height: 100dvh) { .fit-zoom #app, .fit-zoom .h-screen, html.fit-zoom, .fit-zoom body { height: calc(100dvh / var(--fit-k)); } }
@@ -617,7 +619,7 @@ html[data-calm="1"] *{animation-duration:.001ms!important;animation-iteration-co
             <button type="button" data-ad-tab="upload" class="inline-flex items-center justify-center gap-1.5 text-sm font-medium border border-indigo-300 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 rounded-lg px-3 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"><i data-lucide="upload" class="w-4 h-4"></i>Upload the school schedule</button>
           </div>
         </div>
-        <div class="flex gap-1 overflow-x-auto border-b border-slate-200 dark:border-slate-800" id="ad-tabs"><button type="button" data-ad-tab="live" class="flex-1 sm:flex-none whitespace-nowrap text-center px-1.5 sm:px-4 py-2.5 text-[13px] sm:text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">Live now</button><button type="button" data-ad-tab="teachers" class="flex-1 sm:flex-none whitespace-nowrap text-center px-1.5 sm:px-4 py-2.5 text-[13px] sm:text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">By teacher</button><button type="button" data-ad-tab="sections" class="flex-1 sm:flex-none whitespace-nowrap text-center px-1.5 sm:px-4 py-2.5 text-[13px] sm:text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">By section</button><button type="button" data-ad-tab="upload" class="flex-1 sm:flex-none whitespace-nowrap text-center px-1.5 sm:px-4 py-2.5 text-[13px] sm:text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">Upload</button></div>
+        <div class="flex gap-1 overflow-x-auto border-b border-slate-200 dark:border-slate-800" id="ad-tabs"><button type="button" data-ad-tab="live" class="flex-1 sm:flex-none whitespace-nowrap text-center px-1.5 sm:px-4 py-2.5 text-[13px] sm:text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">Live now</button><button type="button" data-ad-tab="teachers" class="flex-1 sm:flex-none whitespace-nowrap text-center px-1.5 sm:px-4 py-2.5 text-[13px] sm:text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">By teacher</button><button type="button" data-ad-tab="sections" class="flex-1 sm:flex-none whitespace-nowrap text-center px-1.5 sm:px-4 py-2.5 text-[13px] sm:text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">By section</button><button type="button" data-ad-tab="upload" class="flex-1 sm:flex-none whitespace-nowrap text-center px-1.5 sm:px-4 py-2.5 text-[13px] sm:text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">Upload</button><button type="button" data-ad-tab="alt" class="flex-1 sm:flex-none whitespace-nowrap text-center px-1.5 sm:px-4 py-2.5 text-[13px] sm:text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">Schedules</button></div>
         <div id="ad-p-live">
           <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 mb-4 md:mb-6" id="live-board-card">
           <div class="flex flex-wrap items-start justify-between gap-2 mb-1">
@@ -647,6 +649,19 @@ html[data-calm="1"] *{animation-duration:.001ms!important;animation-iteration-co
           </div>
           <div class="mb-3"><button type="button" id="ad-s-add" class="inline-flex items-center justify-center gap-1.5 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-3 py-2">Add a period to this section</button></div>
           <div id="ad-s-list"></div>
+        </div>
+        <div id="ad-p-alt" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+          <div id="alt-status"></div>
+          <div id="alt-upload" class="mt-5 border-t border-slate-200 dark:border-slate-800 pt-4">
+            <h2 class="text-sm font-semibold">Add a schedule</h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Upload a picture, PDF, Excel or CSV of a new class program (like the heat-index one), or make your own here. It is saved in the list above and does nothing until you turn it on.</p>
+            <label class="block text-sm font-medium mb-1" for="alt-file">Picture or file</label>
+            <input type="file" id="alt-file" accept="image/*,.pdf,.xlsx,.xlsm,.csv,.tsv" class="block w-full text-sm mb-2">
+            <p id="alt-note" class="text-xs text-slate-500 dark:text-slate-400 min-h-[1rem]"></p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-2 mb-2">Pictures work best when the table is straight and clear, and need internet to read. Always check the result before saving.</p>
+            <div class="flex flex-wrap gap-2"><button type="button" id="alt-blank" class="inline-flex items-center justify-center gap-1.5 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-3 py-2">Make my own schedule</button><button type="button" id="alt-preset" class="inline-flex items-center justify-center gap-1.5 text-sm font-medium border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800">Use the 5:45 AM – 10:30 AM program</button></div>
+          </div>
+          <div id="alt-review"></div>
         </div>
         <div id="ad-p-upload" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
           <p class="text-xs font-semibold uppercase tracking-wide text-indigo-600 dark:text-indigo-400">Step 1</p>
@@ -1991,7 +2006,7 @@ document.querySelectorAll('[data-goto]').forEach(b => b.addEventListener('click'
 (function () {
   const aside = document.querySelector('#app aside'), back = document.getElementById('drawer-backdrop');
   const OPEN = ['fixed', 'inset-y-0', 'left-0', 'z-50', 'flex', 'flex-col', 'shadow-2xl'];
-  const isDesktop = () => window.matchMedia('(min-width: 768px)').matches;
+  const isDesktop = () => window.matchMedia('(min-width: ' + Math.round(768 * (window.__fitK || 1)) + 'px)').matches;
   function fillUser() {
     const n = document.getElementById('header-user-name'), r = document.getElementById('header-user-role');
     document.getElementById('drawer-user-name').textContent = n ? n.textContent : '';
@@ -2571,6 +2586,355 @@ document.addEventListener('click', ev => {
   if (!ev.target.closest('[data-open-records]')) return;
   if (curPeriod && curPeriod.classId) { recClassId = curPeriod.classId; recDate = ''; }
   goToView('records');
+});
+
+/* ==================== HEAT-INDEX / MODIFIED DAILY PROGRAM ==================== */
+// Admin uploads a picture, PDF, Excel or CSV of a new school-wide program. It is read into a table, checked by the admin, then applied to every teacher. The regular schedule is kept and can be restored.
+let alt = null;
+const ALT_TIME = /(\d{1,2})\s*[:.;°'`]\s*(\d{2})\s*[-–—‒~]+\s*(\d{1,2})\s*[:.;°'`]\s*(\d{2})/;
+const ALT_VOCAB = ['Mathematics', 'Science', 'Filipino', 'English', 'TLE', 'Araling Panlipunan', 'MAPEH', 'EsP', 'Math', 'AP', 'Komunikasyon', 'Kasaysayan', 'Pananaliksik', 'Effective Communication', 'Creative Composition', 'General Mathematics', 'General Science', 'Life Skills', 'Personal Development', 'Physical Science', 'Entrepreneurship', 'ICT Specialization', 'Practical Research'];
+const ALT_PRESET = [
+  [['TIME (Grades 7 & 9)', 'TIME (Grades 8 & 10)', 'Love, Rizal, Einstein, Athena', 'Peace, Mabini, Newton, Aphrodite', 'Hope, Luna, Mendel, Artemis', 'Joy, Bonifacio, Galilei'],
+    ['5:45-6:20', '9:00-9:35', 'Math/TLE', 'Science/AP', 'Filipino/MAPEH', 'English/ESP'],
+    ['6:20-6:55', '9:35-10:10', 'Science/AP', 'Filipino/MAPEH', 'English/ESP', 'Math/TLE'],
+    ['6:55-7:10', '10:10-10:25', 'BREAK', 'BREAK', 'BREAK', 'BREAK'],
+    ['7:10-7:45', '10:25-11:00', 'Filipino/MAPEH', 'English/ESP', 'Math/TLE', 'Science/AP'],
+    ['7:45-8:20', '11:00-11:35', 'English/ESP', 'Math/TLE', 'Science/AP', 'Filipino/MAPEH'],
+    ['8:20-8:50', '11:35-12:05', 'ARAL Program', 'ARAL Program', 'ARAL Program', 'ARAL Program']],
+  [['TIME (Grade 11)', 'Shakespeare', 'Austen', 'TIME (Grade 12)', 'Mozart', 'Beethoven'],
+    ['5:45-6:20', 'Effective Comm./ Creative Comp.', 'Life Skills/ Gen Math', '9:00-9:35', 'Hope 3/Physical Science', 'Hope 3/Physical Science'],
+    ['6:20-6:55', 'Komunikasyon/ Gen Math', 'Effective Comm./ Gen. Science', '9:35-10:10', 'Per. Dev./ Pananaliksik', 'Per. Dev./ Pananaliksik'],
+    ['6:55-7:10', 'BREAK', 'BREAK', '10:10-10:25', 'BREAK', 'BREAK'],
+    ['7:10-7:45', 'Life Skills/ Gen. Science', 'Komunikasyon/ Kasaysayan', '10:25-11:00', 'Entrep/III', 'Entrep/III'],
+    ['7:45-8:55', 'ICT Specialization (D1)', '', '11:00-11:35', 'Trends (D2)', 'ICT Specialization (D1)']]
+];
+function altHeat() { return DB.program && DB.program.heat && DB.program.heat.on ? DB.program.heat : null; }
+function altLev(a, b) {
+  const m = a.length, n = b.length; let p = []; for (let j = 0; j <= n; j++) p[j] = j;
+  for (let i = 1; i <= m; i++) { const c = [i]; for (let j = 1; j <= n; j++) c[j] = Math.min(p[j] + 1, c[j - 1] + 1, p[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); p = c; }
+  return p[n];
+}
+function altSnap(s) {
+  const k = adSecNorm(s); if (!k) return s;
+  const vocab = ALT_VOCAB.concat(DB.subjects.map(x => x.name), adAllTeachers().reduce((a, t) => a.concat((t.schedule || []).map(e => e.subject)), []));
+  let best = null, bd = 99, tie = false;
+  vocab.forEach(v => { const vk = adSecNorm(v); if (!vk) return; const d = altLev(k, vk); if (d < bd) { bd = d; best = v; tie = false; } else if (d === bd && adSecNorm(best) !== vk) tie = true; });
+  if (best && bd === 0) return s;
+  const lim = k.length >= 9 ? 2 : k.length >= 5 ? 1 : 0;
+  return best && !tie && bd <= lim ? best : s;
+}
+function altClassesFor(name) {
+  const t = String(name || '').trim(); if (!t) return [];
+  const c1 = stuClassFromLabel(t); if (c1 && /\d/.test(t)) return [c1];
+  const n = adSecNorm(t); if (!n) return [];
+  let hit = DB.classes.filter(c => adSecNorm(c.section) === n); if (hit.length) return hit;
+  const secs = Array.from(new Set(DB.classes.map(c => adSecNorm(c.section)))).filter(Boolean);
+  let best = null, bd = 99, tie = false;
+  secs.forEach(s => { const d = altLev(n, s); if (d < bd) { bd = d; best = s; tie = false; } else if (d === bd) tie = true; });
+  return best && !tie && bd <= (n.length > 5 ? 2 : 1) ? DB.classes.filter(c => adSecNorm(c.section) === best) : [];
+}
+function altHm(h, m) { h = +h; m = +m; if (h >= 1 && h <= 4) h += 12; return h * 60 + m; }
+function altFmt(x) { let h = Math.floor(x / 60) % 24, m = x % 60; if (h > 12) h -= 12; return h + ':' + String(m).padStart(2, '0'); }
+function altTimeParse(s) {
+  const m = ALT_TIME.exec(String(s || '')); if (!m) return null;
+  const a = altHm(m[1], m[2]); let b = altHm(m[3], m[4]); if (b <= a) b += 720; if (b <= a || b - a > 300) return null;
+  return [a, b];
+}
+function altCell(raw) {
+  let t = String(raw || '').replace(/\s+/g, ' ').trim(); if (!t) return null;
+  if (/^(break|recess|hydration|snack|lunch)/i.test(t) || /\baral\b/i.test(t)) return null;
+  let only = 0; t = t.replace(/\(\s*d\s*([12])\s*\)/ig, (m, d) => { only = +d; return ''; }).trim();
+  const parts = t.split(/\s*\/\s*/).map(s => altSnap(s.replace(/^[\s,.;:|-]+|[\s,;:|-]+$/g, '').trim())).filter(Boolean);
+  if (!parts.length) return null;
+  if (only) return { d1: only === 1 ? parts.join(' / ') : '', d2: only === 2 ? parts.join(' / ') : '' };
+  if (parts.length === 1) return { d1: parts[0], d2: parts[0] };
+  return { d1: parts[0], d2: parts.slice(1).join(' / ') };
+}
+function altParseGrid(g) {
+  const nc = Math.max.apply(null, g.map(r => r.length));
+  g = g.map(r => { r = r.slice(); while (r.length < nc) r.push(''); return r; });
+  const head = g[0], body = g.slice(1), blocks = [];
+  const tcols = [];
+  for (let c = 0; c < nc; c++) { const n = body.filter(r => ALT_TIME.test(r[c])).length; if (n >= Math.max(2, body.length * 0.5)) tcols.push({ c, grades: (String(head[c]).match(/\d{1,2}/g) || []).map(Number) }); }
+  if (!tcols.length) return blocks;
+  for (let c = 0; c < nc; c++) {
+    if (tcols.some(t => t.c === c)) continue;
+    const names = String(head[c] || '').split(/[,;&\n]|\band\b/i).map(s => s.trim()).filter(Boolean); if (!names.length) continue;
+    const left = tcols.filter(t => t.c < c).pop() || tcols[0], byT = new Map();
+    const blockFor = tc => { if (!byT.has(tc.c)) byT.set(tc.c, { label: String(head[c]).replace(/\s+/g, ' ').trim(), tc, classIds: [], unresolved: [], rows: [] }); return byT.get(tc.c); };
+    names.forEach(nm => {
+      const cl = altClassesFor(nm);
+      if (!cl.length) { blockFor(left).unresolved.push(nm); return; }
+      cl.forEach(k => {
+        const gr = +(/\d+/.exec(k.name) || [0])[0];
+        const tc = tcols.find(t => t.grades.includes(gr)) || left;
+        const b = blockFor(tc); if (!b.classIds.includes(k.id)) b.classIds.push(k.id);
+      });
+    });
+    byT.forEach(b => {
+      body.forEach(r => {
+        const tm = altTimeParse(r[b.tc.c]), cell = altCell(r[c]); if (!tm || !cell) return;
+        b.rows.push({ start: tm[0], end: tm[1], d1: cell.d1, d2: cell.d2 });
+      });
+      if (b.rows.length) blocks.push(b);
+    });
+  }
+  return blocks;
+}
+function altSheetGrids(rows) {
+  const out = []; let cur = [];
+  const flush = () => { while (cur.length && cur[0].filter(Boolean).length < 2) cur.shift(); if (cur.length >= 3) out.push(cur); cur = []; };
+  (rows || []).forEach(r => { const a = (r || []).map(x => String(x == null ? '' : x).trim()); if (a.some(Boolean)) cur.push(a); else flush(); });
+  flush(); return out;
+}
+// ---- picture reading: find the table lines, cut each cell, read each cell ----
+function altLoadScript(src, test) { return new Promise((res, rej) => { if (test()) return res(); const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('load')); document.head.appendChild(s); }); }
+let altOcrP = null;
+function altOcr() {
+  if (!altOcrP) altOcrP = (async () => {
+    await altLoadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js', () => window.Tesseract);
+    const w = await Tesseract.createWorker('eng'); await w.setParameters({ tessedit_pageseg_mode: '6' }); return w;
+  })().catch(e => { altOcrP = null; throw e; });
+  return altOcrP;
+}
+function altCluster(v, gap) { const out = []; let cur = []; v.forEach(x => { if (cur.length && x - cur[cur.length - 1] > gap) { out.push(cur.reduce((a, b) => a + b, 0) / cur.length); cur = []; } cur.push(x); }); if (cur.length) out.push(cur.reduce((a, b) => a + b, 0) / cur.length); return out; }
+function altFindTables(c) {
+  const W = c.width, H = c.height, px = c.getContext('2d').getImageData(0, 0, W, H).data, lum = new Uint8Array(W * H); let sum = 0;
+  for (let i = 0, p = 0; i < lum.length; i++, p += 4) { lum[i] = (px[p] * 0.3 + px[p + 1] * 0.59 + px[p + 2] * 0.11) | 0; sum += lum[i]; }
+  const th = Math.min(200, Math.max(110, sum / lum.length - 45)), dark = new Uint8Array(W * H); for (let i = 0; i < dark.length; i++) dark[i] = lum[i] < th ? 1 : 0;
+  const gp = Math.max(3, Math.round(W / 350)), minRun = Math.max(40, W * 0.06), minTot = Math.max(150, W * 0.25), hl = [];
+  for (let y = 0; y < H; y++) { let x = 0, tot = 0; const o = y * W; while (x < W) { if (dark[o + x]) { const s = x; while (x < W && dark[o + x]) x++; if (x - s >= minRun) tot += x - s; } else x++; } if (tot >= minTot) hl.push(y); }
+  const ys = altCluster(hl, gp), minV = Math.max(45, H * 0.04), vr = [];
+  for (let x = 0; x < W; x++) { const L = []; let y = 0; while (y < H) { if (dark[y * W + x]) { const s = y; while (y < H && dark[y * W + x]) y++; if (y - s >= minV) L.push([s, y]); } else y++; } vr.push(L); }
+  const rows = [];
+  for (let i = 0; i + 1 < ys.length; i++) {
+    const y0 = Math.round(ys[i]) + 2, y1 = Math.round(ys[i + 1]) - 2; if (y1 - y0 < 8) continue;
+    const xs = []; for (let x = 0; x < W; x++) if (vr[x].some(s => s[0] <= y0 + 1 && s[1] >= y1 - 1)) xs.push(x);
+    rows.push({ y0: ys[i], y1: ys[i + 1], xs: altCluster(xs, gp * 2) });
+  }
+  const sim = (p, q) => p.length >= 3 && q.length >= 3 && p.filter(x => q.some(z => Math.abs(x - z) <= gp * 2)).length / Math.max(p.length, q.length) >= 0.6;
+  const tabs = []; let cur = [];
+  rows.forEach(r => { if (r.xs.length >= 3 && (!cur.length || sim(cur[cur.length - 1].xs, r.xs))) cur.push(r); else { if (cur.length) { tabs.push(cur); cur = []; } if (r.xs.length >= 3) cur = [r]; } });
+  if (cur.length) tabs.push(cur);
+  return tabs.filter(t => t.length >= 2).map(t => {
+    const all = []; t.forEach(r => r.xs.forEach(x => all.push(x))); all.sort((a, b) => a - b);
+    const xs = altCluster(all, gp * 2).filter(x => t.filter(r => r.xs.some(z => Math.abs(x - z) <= gp * 2)).length >= t.length * 0.5);
+    return t.map(r => { const cells = []; for (let k = 0; k + 1 < xs.length; k++) {
+      const x0 = Math.round(xs[k]) + 3, x1 = Math.round(xs[k + 1]) - 2, y0 = Math.round(r.y0) + 3, y1 = Math.round(r.y1) - 2; let ink = 0, tot = 0;
+      for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { ink += dark[y * W + x]; tot++; }
+      cells.push({ x0, y0, x1, y1, empty: !tot || ink / tot < 0.004 }); } return cells; });
+  });
+}
+async function altReadCanvases(cans, say) {
+  const tables = []; cans.forEach(c => altFindTables(c).forEach(t => tables.push({ c, t })));
+  let total = 0, done = 0; tables.forEach(o => o.t.forEach(r => r.forEach(k => { if (!k.empty) total++; })));
+  if (!total) return [];
+  say('Loading the reader… (needs internet, first time only)');
+  const w = await altOcr(), grids = [];
+  for (const o of tables) {
+    const grid = [];
+    for (const r of o.t) {
+      const row = [];
+      for (const k of r) {
+        if (k.empty) { row.push(''); continue; }
+        const cw = k.x1 - k.x0, ch = k.y1 - k.y0, s = Math.max(1.5, Math.min(4, 90 / ch)), pad = 12, cv = document.createElement('canvas');
+        cv.width = Math.round(cw * s) + pad * 2; cv.height = Math.round(ch * s) + pad * 2;
+        const cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height); cx.drawImage(o.c, k.x0, k.y0, cw, ch, pad, pad, cv.width - pad * 2, cv.height - pad * 2);
+        const res = await w.recognize(cv); row.push(String(res.data.text || '').replace(/\s+/g, ' ').trim());
+        done++; say('Reading the picture… ' + done + ' of ' + total);
+      }
+      grid.push(row);
+    }
+    grids.push(grid);
+  }
+  return grids;
+}
+function altImgCanvas(file) {
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file), im = new Image();
+    im.onload = () => { const k = Math.min(2, 2200 / im.naturalWidth), c = document.createElement('canvas'); c.width = Math.round(im.naturalWidth * k); c.height = Math.round(im.naturalHeight * k); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); URL.revokeObjectURL(url); res(c); };
+    im.onerror = () => rej(new Error('img')); im.src = url;
+  });
+}
+async function altPdfCanvases(buf) {
+  const lib = await stuPdfLib(), doc = await lib.getDocument({ data: new Uint8Array(buf) }).promise, out = [];
+  for (let i = 1; i <= Math.min(doc.numPages, 6); i++) {
+    const pg = await doc.getPage(i), v0 = pg.getViewport({ scale: 1 }), vp = pg.getViewport({ scale: Math.min(4, 2000 / v0.width) }), c = document.createElement('canvas');
+    c.width = Math.round(vp.width); c.height = Math.round(vp.height); await pg.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise; out.push(c);
+  }
+  return out;
+}
+function altSay(t, bad) { const n = document.getElementById('alt-note'); if (n) { n.textContent = t || ''; n.classList.toggle('text-red-600', !!bad); } }
+async function altLoad(file) {
+  const nm = file.name || '', buf = () => new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = rej; r.readAsArrayBuffer(file); });
+  try {
+    let grids = [];
+    if (/\.xls$/i.test(nm)) { altSay('Old .xls files are not supported. Save it as .xlsx or CSV first.', true); return; }
+    if (/\.(xlsx|xlsm)$/i.test(nm)) { (await readXlsxBook(await buf(), { keepGaps: true })).forEach(sh => { grids = grids.concat(altSheetGrids(sh.rows || [])); }); }
+    else if (/\.(csv|txt|tsv)$/i.test(nm)) { const t = await new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(String(e.target.result).replace(/^﻿/, '')); r.onerror = rej; r.readAsText(file); }); const d = t.indexOf('\t') >= 0 ? '\t' : (t.split(';').length > t.split(',').length ? ';' : ','); grids = altSheetGrids(t.split(/\r?\n/).map(l => splitCsvLine(l, d))); }
+    else if (/\.pdf$/i.test(nm) || file.type === 'application/pdf') { altSay('Opening the PDF…'); grids = await altReadCanvases(await altPdfCanvases(await buf()), altSay); }
+    else { altSay('Opening the picture…'); grids = await altReadCanvases([await altImgCanvas(file)], altSay); }
+    if (!grids.length) { altSay('I could not find a table in that file. Use a straight, clear picture of the table (not tilted), or upload the Excel/CSV, or use the ready-made program below.', true); return; }
+    altFromGrids(grids, nm);
+  } catch (e) { altSay(/load|Failed|network/i.test(String(e && e.message)) ? 'The picture reader could not load. It needs internet. Try again online, upload Excel/CSV, or use the ready-made program below.' : 'I could not read that file. Try a clearer picture, a PDF, or Excel/CSV.', true); }
+}
+function altSets() { const p = adProg(); if (!Array.isArray(p.sets)) p.sets = []; return p.sets; }
+function altBase(source, name, blocks) { return { id: '', source, name, mode: 'alt', days1: ['Mon', 'Wed', 'Fri'], days2: ['Tue', 'Thu'], blocks, manual: {} }; }
+function altFromGrids(grids, source) {
+  let blocks = []; grids.forEach(g => { blocks = blocks.concat(altParseGrid(g)); });
+  if (!blocks.length) { altSay('I read the file but could not find a time column with sections. Check that the table has TIME columns and section names in the header row.', true); return; }
+  alt = altBase(source, 'Heat-index program', blocks); altSay(''); altRender();
+}
+// ---- who teaches what: taken from the regular schedule (class + subject) ----
+function altPlan(a) {
+  const idx = {};
+  adAllTeachers().forEach(o => (o.scheduleNormal || o.schedule || []).filter(e => !e.coverOf).forEach(e => (e.classIds || []).forEach(cid => { (idx[cid] = idx[cid] || []).push({ id: o.id, subject: e.subject, key: subjKey(adSubject(e.subject)) }); })));
+  const find = (cid, subj) => {
+    const k = subjKey(adSubject(subj)), L = idx[cid] || []; let m = L.find(x => x.key === k); if (m) return m;
+    const w = k.split(' ')[0]; return L.find(x => x.key && (x.key.startsWith(k) || k.startsWith(x.key) || (w.length > 3 && x.key.split(' ')[0] === w))) || null;
+  };
+  const map = new Map(), missing = new Map(); let periods = 0;
+  a.blocks.forEach(b => b.classIds.forEach(cid => b.rows.forEach(r => (a.mode === 'same' ? [1] : [1, 2]).forEach(dn => {
+    const s = (dn === 1 ? r.d1 : r.d2); if (!s) return;
+    const mk = cid + '|' + subjKey(adSubject(s)); const hit = (a.manual || {})[mk] ? { id: a.manual[mk], subject: adSubject(s) } : find(cid, s);
+    if (!hit) { if (!missing.has(mk)) missing.set(mk, { mk, cid, subject: s }); return; }
+    (dn === 1 ? a.days1 : a.days2).forEach(day => {
+      const k = [hit.id, hit.subject, day, r.start, r.end].join('|');
+      if (!map.has(k)) map.set(k, { owner: hit.id, e: { id: uid('sch'), src: 'admin', heat: true, subject: hit.subject, classIds: [], day, start: adHm(r.start), end: adHm(r.end), term: 'all' } });
+      const m = map.get(k); if (!m.e.classIds.includes(cid)) m.e.classIds.push(cid);
+    });
+  }))));
+  const byOwner = {}; map.forEach(m => { (byOwner[m.owner] = byOwner[m.owner] || []).push(m.e); periods++; });
+  return { byOwner, missing: Array.from(missing.values()), periods };
+}
+function altRevert() {
+  adAllTeachers().forEach(o => { if (Array.isArray(o.scheduleNormal)) { o.schedule = (o.schedule || []).filter(e => e.coverOf).concat(o.scheduleNormal); delete o.scheduleNormal; } });
+  adProg().heat = null; admCoverResync();
+}
+function altActivate(id) {
+  const set = altSets().find(s => s.id === id); if (!set) return false;
+  if (!set.days1.length || (set.mode !== 'same' && !set.days2.length)) { toast('Pick the weekdays for this schedule first (Edit).', 'warning'); return false; }
+  const plan = altPlan(set);
+  if (!plan.periods) { toast('No teacher was matched to any period, so nothing would change. Upload the regular schedule first, or pick teachers for the subjects (Edit).', 'warning'); return false; }
+  if (altHeat()) altRevert();
+  const cls = new Set(); set.blocks.forEach(b => b.classIds.forEach(c => cls.add(c)));
+  const plan2 = altPlan(set); let touched = 0;
+  adAllTeachers().forEach(o => {
+    const mine = plan2.byOwner[o.id], teaches = (o.schedule || []).some(e => !e.coverOf && (e.classIds || []).some(c => cls.has(c)));
+    if (!mine && !teaches) return;
+    o.scheduleNormal = (o.schedule || []).filter(e => !e.coverOf);
+    o.schedule = (o.schedule || []).filter(e => e.coverOf).concat(mine || []);
+    (mine || []).forEach(e => ensurePortalSubject(e.subject, DB.teachers.some(t => t.id === o.id) ? o.id : ''));
+    touched++;
+  });
+  adProg().heat = { on: true, setId: set.id, name: set.name, at: new Date().toISOString(), days1: set.days1.slice(), days2: set.mode === 'same' ? [] : set.days2.slice(), teachers: touched, periods: plan2.periods, missing: plan2.missing.length };
+  admCoverResync();
+  return saveDB();
+}
+function altRestore() { altRevert(); if (!saveDB()) return; renderAdminSchedule(); toast('Regular schedule is back for everyone.', 'success'); }
+function altSaveDraft(use) {
+  const a = alt; if (!a) return;
+  if (!a.blocks.length) { toast('Add at least one group of sections first.', 'warning'); return; }
+  const bad = a.blocks.find(b => !b.classIds.length); if (bad) { toast('Pick the sections for "' + (bad.label || 'a group') + '".', 'warning'); return; }
+  if (!a.days1.length || (a.mode !== 'same' && !a.days2.length)) { toast('Pick the weekdays first.', 'warning'); return; }
+  const rec = { id: a.id || uid('set'), name: (a.name || '').trim() || 'My schedule', source: a.source || '', mode: a.mode, days1: a.days1.slice(), days2: a.days2.slice(), blocks: JSON.parse(JSON.stringify(a.blocks)), manual: Object.assign({}, a.manual), at: new Date().toISOString() };
+  const L = altSets(), i = L.findIndex(s => s.id === rec.id); if (i >= 0) L[i] = rec; else L.push(rec);
+  const wasOn = altHeat() && altHeat().setId === rec.id;
+  alt = null; altSay('');
+  if (use || wasOn) { if (!altActivate(rec.id)) { saveDB(); renderAdminSchedule(); return; } toast('"' + rec.name + '" is ON for everyone. Teachers and students see it now.', 'success'); }
+  else { if (!saveDB()) return; toast('Saved. Turn it on from the list when you want to use it.', 'success'); }
+  renderAdminSchedule();
+}
+// ---- screen ----
+function altClsName(id) { const c = DB.classes.find(x => x.id === id); return c ? c.name + ' ' + c.section : '?'; }
+function altMissingHtml(a) {
+  const plan = altPlan(a), teachers = adAllTeachers().slice().sort(adByName), by = new Map();
+  plan.missing.forEach(x => { const k = subjKey(adSubject(x.subject)); if (!by.has(k)) by.set(k, { k, subject: x.subject, n: 0 }); by.get(k).n++; });
+  let h = '<p class="text-sm"><b>' + plan.periods + '</b> periods matched to teachers.</p>';
+  if (!by.size) return h;
+  h += '<p class="text-xs text-slate-500 dark:text-slate-400 mt-2 mb-1">No teacher found in the regular schedule for these. Pick who teaches it (or it is left out):</p><div class="space-y-1.5">';
+  Array.from(by.values()).slice(0, 20).forEach(x => { h += '<div class="flex items-center gap-2 text-xs"><span class="flex-1 min-w-0 truncate">' + escapeHtml(x.subject) + ' · ' + x.n + ' section' + (x.n > 1 ? 's' : '') + '</span><select data-alt-man="' + escapeHtml(x.k) + '" class="' + adInp + ' !w-40 !py-1"><option value="">Left out</option>' + teachers.map(t => '<option value="' + t.id + '">' + escapeHtml(t.name) + '</option>').join('') + '</select></div>'; });
+  return h + '</div>';
+}
+function altRender() {
+  const el = document.getElementById('alt-review'); if (!el) return;
+  if (!alt) { el.innerHTML = ''; return; }
+  const a = alt, same = a.mode === 'same', dayBox = k => SCHOOL_DAYS.map(d => '<label class="inline-flex items-center gap-1 text-sm mr-3"><input type="checkbox" data-alt-day="' + k + ':' + d + '" ' + (a[k].includes(d) ? 'checked' : '') + '> ' + d + '</label>').join('');
+  const cols = same ? 'grid-cols-[6.5rem_1fr_1.5rem]' : 'grid-cols-[6.5rem_1fr_1fr_1.5rem]';
+  const grades = Array.from(new Set(DB.classes.map(c => c.name))).sort((x, y) => x.localeCompare(y, undefined, { numeric: true }));
+  const addOpts = '<option value="">Add section…</option>' + grades.map(g => '<option value="g:' + escapeHtml(g) + '">All ' + escapeHtml(g) + '</option>').join('') + DB.classes.slice().sort((x, y) => (x.name + x.section).localeCompare(y.name + y.section, undefined, { numeric: true })).map(c => '<option value="' + c.id + '">' + escapeHtml(c.name + ' ' + c.section) + '</option>').join('');
+  let h = '<div class="mt-4 border-t border-slate-200 dark:border-slate-800 pt-4"><h3 class="text-sm font-semibold">' + (a.id ? 'Edit schedule' : 'New schedule') + '</h3><p class="text-xs text-slate-500 dark:text-slate-400 mb-3">' + (a.source ? 'From ' + escapeHtml(a.source) + '. ' : '') + 'Fix anything that looks wrong. Breaks and ARAL are left out. Nothing changes for anyone until you turn it on.</p>' +
+    '<label class="text-xs font-medium text-slate-500 block mb-1" for="alt-name">Name</label><input id="alt-name" class="' + adInp + ' max-w-sm mb-3" value="' + escapeHtml(a.name) + '">' +
+    '<div class="mb-3 text-sm"><label class="mr-4"><input type="radio" name="alt-mode" data-alt-mode="alt" ' + (same ? '' : 'checked') + '> Two alternating days (Day 1 / Day 2)</label><label><input type="radio" name="alt-mode" data-alt-mode="same" ' + (same ? 'checked' : '') + '> Same every day</label></div>' +
+    '<div class="mb-1 text-sm font-medium">' + (same ? 'Days it runs' : 'Day 1 / odd days (first subject of each pair)') + '</div><div class="mb-2">' + dayBox('days1') + '</div>' +
+    (same ? '' : '<div class="mb-1 text-sm font-medium">Day 2 / even days (second subject)</div><div class="mb-3">' + dayBox('days2') + '</div>');
+  a.blocks.forEach((b, bi) => {
+    h += '<div class="border border-slate-200 dark:border-slate-800 rounded-lg p-3 mb-3"><div class="flex items-center gap-2"><input data-alt-lab="' + bi + '" class="' + adInp + ' !py-1 font-semibold" value="' + escapeHtml(b.label) + '" aria-label="Group name"><button type="button" data-alt-rmb="' + bi + '" class="text-xs text-red-600 underline whitespace-nowrap">Remove group</button></div><div class="flex flex-wrap gap-1 my-1.5">' +
+      b.classIds.map(id => '<span class="text-xs rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 pl-2 pr-1 py-0.5">' + escapeHtml(altClsName(id)) + ' <button type="button" data-alt-rc="' + bi + ':' + id + '" aria-label="Remove" class="px-1">×</button></span>').join('') + '</div>';
+    b.unresolved.forEach((n, ni) => { h += '<div class="flex items-center gap-2 text-xs my-1"><span class="text-red-600">Unknown section "' + escapeHtml(n) + '"</span><select data-alt-pick="' + bi + ':' + ni + '" class="' + adInp + ' !w-44 !py-1">' + addOpts + '</select></div>'; });
+    h += '<select data-alt-add="' + bi + '" class="' + adInp + ' !w-48 !py-1 my-1">' + addOpts + '</select>' +
+      '<div class="grid ' + cols + ' gap-1.5 text-[11px] text-slate-500 mt-2"><span>Time</span><span>' + (same ? 'Subject' : 'Day 1') + '</span>' + (same ? '' : '<span>Day 2</span>') + '<span></span></div>';
+    b.rows.forEach((r, ri) => { const p = bi + ':' + ri; h += '<div class="grid ' + cols + ' gap-1.5 mt-1"><input data-alt-in="' + p + ':t" class="' + adInp + ' !px-2 !py-1" value="' + altFmt(r.start) + '-' + altFmt(r.end) + '"><input data-alt-in="' + p + ':d1" class="' + adInp + ' !px-2 !py-1" value="' + escapeHtml(r.d1) + '">' + (same ? '' : '<input data-alt-in="' + p + ':d2" class="' + adInp + ' !px-2 !py-1" value="' + escapeHtml(r.d2) + '">') + '<button type="button" data-alt-del="' + p + '" class="text-slate-400 hover:text-red-600" aria-label="Remove row">×</button></div>'; });
+    h += '<button type="button" data-alt-addrow="' + bi + '" class="text-xs underline mt-2">+ Add period</button></div>';
+  });
+  h += '<button type="button" id="alt-addblock" class="' + adBtn2 + ' mb-3">+ Add group of sections</button>' +
+    '<div id="alt-missing" class="mb-3">' + altMissingHtml(a) + '</div>' +
+    '<div class="flex flex-wrap gap-2"><button type="button" id="alt-save-use" class="' + adBtn + '">Save and turn on</button><button type="button" id="alt-save" class="' + adBtn2 + '">Save only</button><button type="button" id="alt-cancel" class="' + adBtn2 + '">Cancel</button></div></div>';
+  el.innerHTML = h;
+}
+function altRenderTab() {
+  const st = document.getElementById('alt-status'); if (!st) return;
+  const H = altHeat(), prog = DB.program || {}, sets = altSets();
+  const card = (on, title, sub, btns) => '<div class="border ' + (on ? 'border-indigo-500' : 'border-slate-200 dark:border-slate-800') + ' rounded-lg p-3 mb-2"><div class="flex items-start gap-2"><div class="flex-1 min-w-0"><p class="text-sm font-semibold">' + title + (on ? ' <span class="text-[11px] font-medium rounded-full bg-indigo-600 text-white px-2 py-0.5 ml-1">ON</span>' : '') + '</p><p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">' + sub + '</p></div></div><div class="flex flex-wrap gap-2 mt-2">' + btns + '</div></div>';
+  const sm = 'text-xs font-medium border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800';
+  let h = '<h2 class="text-sm font-semibold mb-1">Schedules</h2><p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Only one schedule is ON at a time. Turning one on changes it for every teacher and student on every device.</p>';
+  h += card(!H, 'Regular schedule', prog.file ? 'From your uploaded general and teacher schedule: ' + escapeHtml(prog.file) + (prog.importedAt ? ' (' + new Date(prog.importedAt).toLocaleDateString() + ')' : '') : 'The general and teacher schedule you uploaded in the Upload tab.', H ? '<button type="button" id="alt-restore" class="' + adBtn + ' !text-xs !px-2.5 !py-1.5">Turn on</button>' : '<span class="text-xs text-slate-500">In use now</span>');
+  if (H && !H.setId) h += card(true, escapeHtml(H.name), H.teachers + ' teachers · ' + H.periods + ' periods', '<button type="button" id="alt-restore" class="' + sm + '">Turn off (back to regular)</button>');
+  sets.forEach(s => {
+    const on = !!(H && H.setId === s.id), n = s.blocks.reduce((a, b) => a + b.classIds.length, 0);
+    h += card(on, escapeHtml(s.name), s.blocks.length + ' groups · ' + n + ' sections · ' + (s.mode === 'same' ? 'same every day' : 'Day 1 / Day 2') + (s.source ? ' · ' + escapeHtml(s.source) : ''),
+      (on ? '<button type="button" id="alt-restore" class="' + sm + '">Turn off</button>' : '<button type="button" data-alt-on="' + s.id + '" class="' + adBtn + ' !text-xs !px-2.5 !py-1.5">Turn on</button>') + '<button type="button" data-alt-edit="' + s.id + '" class="' + sm + '">Edit</button><button type="button" data-alt-delset="' + s.id + '" class="' + sm + ' text-red-600">Delete</button>');
+  });
+  st.innerHTML = h; altRender();
+}
+document.addEventListener('click', ev => {
+  const g = s => ev.target.closest(s);
+  if (g('#alt-preset')) { altFromGrids(ALT_PRESET, 'the Modified Daily Class Program (5:45 AM – 10:30 AM)'); return; }
+  if (g('#alt-blank')) { alt = altBase('', 'My schedule', []); alt.blocks.push({ label: 'Group 1', classIds: [], unresolved: [], rows: [{ start: 345, end: 380, d1: '', d2: '' }] }); altRender(); return; }
+  if (g('#alt-cancel')) { alt = null; altRender(); altSay(''); return; }
+  if (g('#alt-save-use')) { if (alt) altSaveDraft(true); return; }
+  if (g('#alt-save')) { if (alt) altSaveDraft(false); return; }
+  if (g('#alt-restore')) { askConfirm('Go back to the regular schedule?', 'Everyone goes back to the regular class schedule right away, on all devices.', altRestore); return; }
+  let b;
+  if ((b = g('[data-alt-on]'))) { const id = b.dataset.altOn, s = altSets().find(x => x.id === id); if (s) askConfirm('Turn on "' + s.name + '"?', 'Every teacher and student switches to this schedule right away, on all devices. The regular schedule is kept and you can switch back any time.', () => { if (altActivate(id)) { renderAdminSchedule(); toast('"' + s.name + '" is ON for everyone.', 'success'); } }); return; }
+  if ((b = g('[data-alt-edit]'))) { const s = altSets().find(x => x.id === b.dataset.altEdit); if (s) { alt = JSON.parse(JSON.stringify(s)); alt.manual = alt.manual || {}; altRender(); const r = document.getElementById('alt-review'); if (r) r.scrollIntoView({ behavior: 'smooth', block: 'start' }); } return; }
+  if ((b = g('[data-alt-delset]'))) { const id = b.dataset.altDelset, s = altSets().find(x => x.id === id); if (s) askConfirm('Delete "' + s.name + '"?', (altHeat() && altHeat().setId === id ? 'It is ON now, so everyone goes back to the regular schedule. ' : '') + 'This cannot be undone.', () => { if (altHeat() && altHeat().setId === id) altRevert(); const L = altSets(); L.splice(L.findIndex(x => x.id === id), 1); if (saveDB()) { renderAdminSchedule(); toast('Deleted.', 'success'); } }); return; }
+  if (!alt) return;
+  if (g('#alt-addblock')) { alt.blocks.push({ label: 'Group ' + (alt.blocks.length + 1), classIds: [], unresolved: [], rows: [{ start: 345, end: 380, d1: '', d2: '' }] }); altRender(); return; }
+  if ((b = g('[data-alt-rmb]'))) { alt.blocks.splice(+b.dataset.altRmb, 1); altRender(); return; }
+  if ((b = g('[data-alt-rc]'))) { const [i, id] = b.dataset.altRc.split(':'); const bl = alt.blocks[+i]; bl.classIds = bl.classIds.filter(x => x !== id); altRender(); return; }
+  if ((b = g('[data-alt-addrow]'))) { const bl = alt.blocks[+b.dataset.altAddrow], last = bl.rows[bl.rows.length - 1], s = last ? last.end : 345; bl.rows.push({ start: s, end: s + 35, d1: '', d2: '' }); altRender(); return; }
+  if ((b = g('[data-alt-del]'))) { const [bi, r] = b.dataset.altDel.split(':').map(Number); alt.blocks[bi].rows.splice(r, 1); altRender(); }
+});
+document.addEventListener('change', ev => {
+  const t = ev.target; if (!t || !t.matches) return;
+  if (t.id === 'alt-file') { const f = t.files && t.files[0]; t.value = ''; if (f) altLoad(f); return; }
+  if (!alt) return;
+  const upd = () => { const m = document.getElementById('alt-missing'); if (m) m.innerHTML = altMissingHtml(alt); };
+  if (t.id === 'alt-name') { alt.name = t.value.trim(); return; }
+  if (t.dataset.altMode) { alt.mode = t.dataset.altMode; if (alt.mode === 'same') alt.days1 = SCHOOL_DAYS.slice(); else if (alt.days1.length === 5) { alt.days1 = ['Mon', 'Wed', 'Fri']; alt.days2 = ['Tue', 'Thu']; } altRender(); return; }
+  if (t.dataset.altLab !== undefined) { alt.blocks[+t.dataset.altLab].label = t.value.trim(); return; }
+  if (t.dataset.altDay) { const [k, d] = t.dataset.altDay.split(':'); const s = new Set(alt[k]); t.checked ? s.add(d) : s.delete(d); alt[k] = SCHOOL_DAYS.filter(x => s.has(x)); upd(); return; }
+  if (t.dataset.altIn) {
+    const [b, r, f] = t.dataset.altIn.split(':'), row = alt.blocks[+b].rows[+r];
+    if (f === 't') { const tm = altTimeParse(t.value); if (tm) { row.start = tm[0]; row.end = tm[1]; t.classList.remove('border-red-500'); t.value = altFmt(tm[0]) + '-' + altFmt(tm[1]); } else { t.classList.add('border-red-500'); toast('Write the time like 5:45-6:20', 'warning'); return; } }
+    else row[f] = t.value.trim();
+    upd(); return;
+  }
+  const addCls = (bl, v) => { if (!v) return; const ids = v.startsWith('g:') ? DB.classes.filter(c => c.name === v.slice(2)).map(c => c.id) : [v]; ids.forEach(id => { if (!bl.classIds.includes(id)) bl.classIds.push(id); }); };
+  if (t.dataset.altAdd !== undefined) { addCls(alt.blocks[+t.dataset.altAdd], t.value); altRender(); return; }
+  if (t.dataset.altPick) { const [b, n] = t.dataset.altPick.split(':').map(Number); if (t.value) { const bl = alt.blocks[b]; addCls(bl, t.value); bl.unresolved.splice(n, 1); altRender(); } return; }
+  if (t.dataset.altMan !== undefined) { const v = t.value, k = t.dataset.altMan; altPlan(alt).missing.filter(x => subjKey(adSubject(x.subject)) === k).forEach(x => { if (v) alt.manual[x.mk] = v; else delete alt.manual[x.mk]; }); upd(); }
 });
 
 /* ==================== SCAN DUPLICATE GUARD ==================== */
@@ -10003,6 +10367,7 @@ function adLinkRec(rec, t) {
   t.schedule = t.schedule || [];
   (rec.schedule || []).forEach(e => { if (!t.schedule.some(x => x.id === e.id)) t.schedule.push(e); ensurePortalSubject(e.subject, t.id); });
   if ((rec.email && normEmail(rec.email) === normEmail(t.email)) || (rec.name && !/\s/.test((t.name || '').trim()))) { if (rec.name) t.name = rec.name; }
+  if (Array.isArray(rec.scheduleNormal)) { t.scheduleNormal = (t.scheduleNormal || []).concat(rec.scheduleNormal.filter(e => !(t.scheduleNormal || []).some(x => x.id === e.id))); delete rec.scheduleNormal; }
   rec.schedule = []; rec.accountId = t.id;
   if (rec.isSub) t.isSub = true; if (rec.onLeave) { t.onLeave = true; t.leaveFrom = rec.leaveFrom || ''; t.leaveTo = rec.leaveTo || ''; } t.subs = Array.from(new Set((t.subs || []).concat(rec.subs || [])));
   if (rec.photo && !t.photo) t.photo = rec.photo;
@@ -10018,7 +10383,7 @@ function adAutoLink(t) {
 }
 function adUnlink(t) {
   const rec = adPeople().find(r => r.accountId === t.id); if (!rec) return;
-  rec.accountId = ''; rec.schedule = (t.schedule || []).filter(e => !e.coverOf); rec.isSub = !!t.isSub; rec.onLeave = !!t.onLeave; rec.leaveFrom = t.leaveFrom || ''; rec.leaveTo = t.leaveTo || ''; rec.subs = (t.subs || []).slice();
+  rec.accountId = ''; rec.schedule = (t.schedule || []).filter(e => !e.coverOf); if (Array.isArray(t.scheduleNormal)) { rec.scheduleNormal = t.scheduleNormal; delete t.scheduleNormal; } rec.isSub = !!t.isSub; rec.onLeave = !!t.onLeave; rec.leaveFrom = t.leaveFrom || ''; rec.leaveTo = t.leaveTo || ''; rec.subs = (t.subs || []).slice();
   if (t.advisoryClassId) rec.advisoryClassId = t.advisoryClassId;
 }
 // The General Class Program is the authority: a teacher's classes, sections and times are taken from it, so teachers and students see the same thing.
@@ -10183,7 +10548,7 @@ function renderAdminSchedule() {
   if (!document.getElementById('ad-term')) return;
   document.getElementById('ad-term').value = String(DB.settings.currentTerm);
   document.getElementById('ad-year').value = DB.settings.schoolYear || '';
-  ['live', 'teachers', 'sections', 'upload'].forEach(t => {
+  ['live', 'teachers', 'sections', 'upload', 'alt'].forEach(t => {
     document.getElementById('ad-p-' + t).classList.toggle('hidden', t !== adTab);
     const b = document.querySelector('#ad-tabs [data-ad-tab="' + t + '"]');
     if (b) {
@@ -10194,6 +10559,7 @@ function renderAdminSchedule() {
   if (adTab === 'live') renderLiveBoard();
   if (adTab === 'teachers') adRenderTeachers();
   if (adTab === 'sections') adRenderSections();
+  if (adTab === 'alt') altRenderTab();
   if (adTab === 'upload') { adRenderTermPick(); document.getElementById('ad-step2').classList.toggle('hidden', !adAsked); adRenderUploadInfo(); adRenderPreview(); }
 }
 function adEditor(ownerId, entryId, pre) {
@@ -10285,6 +10651,7 @@ document.addEventListener('click', ev => {
   if (g('#ad-import-cancel')) { adGen = null; { const gf = document.getElementById('ad-gen-file'), gn = document.getElementById('ad-gen-note'); if (gf) gf.value = ''; if (gn) gn.textContent = ''; } adPending = null; adRenderPreview(); const f = document.getElementById('ad-file'); if (f) f.value = ''; return; }
   if (g('#ad-import')) {
     if (!adPending) return;
+    if (altHeat()) { toast('The heat-index program is on. Switch back to the regular schedule first (Schedules tab), then upload.', 'warning'); return; }
     const P = adPending;
     if (!P.terms.size) { toast('Tick at least one term to import.', 'warning'); return; }
     const r = adApplyImport(P.parsed, P.choice, Array.from(P.terms), P.useSy, P.fileName);
