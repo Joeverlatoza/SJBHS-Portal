@@ -2628,6 +2628,7 @@ function altClassesFor(name) {
   const c1 = stuClassFromLabel(t); if (c1 && /\d/.test(t)) return [c1];
   const n = adSecNorm(t); if (!n) return [];
   let hit = DB.classes.filter(c => adSecNorm(c.section) === n); if (hit.length) return hit;
+  const al = { shakespeare: 'acad', austen: 'techpro' }[n]; if (al) { hit = DB.classes.filter(c => c.name === 'Grade 11' && adSecNorm(c.section) === al); if (hit.length) return hit; }
   const secs = Array.from(new Set(DB.classes.map(c => adSecNorm(c.section)))).filter(Boolean);
   let best = null, bd = 99, tie = false;
   secs.forEach(s => { const d = altLev(n, s); if (d < bd) { bd = d; best = s; tie = false; } else if (d === bd) tie = true; });
@@ -2646,9 +2647,9 @@ function altCell(raw) {
   let only = 0; t = t.replace(/\(\s*d\s*([12])\s*\)/ig, (m, d) => { only = +d; return ''; }).trim();
   const parts = t.split(/\s*\/\s*/).map(s => altSnap(s.replace(/^[\s,.;:|-]+|[\s,;:|-]+$/g, '').trim())).filter(Boolean);
   if (!parts.length) return null;
-  if (only) return { d1: only === 1 ? parts.join(' / ') : '', d2: only === 2 ? parts.join(' / ') : '' };
-  if (parts.length === 1) return { d1: parts[0], d2: parts[0] };
-  return { d1: parts[0], d2: parts.slice(1).join(' / ') };
+  if (only) return { d1: only === 1 ? parts.join(' / ') : '', d2: only === 2 ? parts.join(' / ') : '', opts: parts };
+  if (parts.length === 1) return { d1: parts[0], d2: parts[0], opts: parts };
+  return { d1: parts[0], d2: parts.slice(1).join(' / '), opts: parts };
 }
 function altParseGrid(g) {
   const nc = Math.max.apply(null, g.map(r => r.length));
@@ -2672,9 +2673,11 @@ function altParseGrid(g) {
       });
     });
     byT.forEach(b => {
+      const secs = b.classIds.map(id => (DB.classes.find(k => k.id === id) || {}).section).concat(b.unresolved).filter(Boolean);
+      b.label = (b.tc.grades.length ? (b.tc.grades.length > 1 ? 'Grades ' : 'Grade ') + b.tc.grades.join(' & ') + ' time · ' : '') + secs.join(', ');
       body.forEach(r => {
         const tm = altTimeParse(r[b.tc.c]), cell = altCell(r[c]); if (!tm || !cell) return;
-        b.rows.push({ start: tm[0], end: tm[1], d1: cell.d1, d2: cell.d2 });
+        b.rows.push({ start: tm[0], end: tm[1], d1: cell.d1, d2: cell.d2, opts: cell.opts || [] });
       });
       if (b.rows.length) blocks.push(b);
     });
@@ -2779,29 +2782,43 @@ async function altLoad(file) {
   } catch (e) { altSay(/load|Failed|network/i.test(String(e && e.message)) ? 'The picture reader could not load. It needs internet. Try again online, upload Excel/CSV, or use the ready-made program below.' : 'I could not read that file. Try a clearer picture, a PDF, or Excel/CSV.', true); }
 }
 function altSets() { const p = adProg(); if (!Array.isArray(p.sets)) p.sets = []; return p.sets; }
-function altBase(source, name, blocks) { return { id: '', source, name, mode: 'alt', days1: ['Mon', 'Wed', 'Fri'], days2: ['Tue', 'Thu'], blocks, manual: {} }; }
+function altBase(source, name, blocks) { return { id: '', source, name, mode: 'alt', days1: ['Mon', 'Wed', 'Fri'], days2: ['Tue', 'Thu'], blocks, manual: {}, offGrades: [] }; }
 function altFromGrids(grids, source) {
   let blocks = []; grids.forEach(g => { blocks = blocks.concat(altParseGrid(g)); });
   if (!blocks.length) { altSay('I read the file but could not find a time column with sections. Check that the table has TIME columns and section names in the header row.', true); return; }
   alt = altBase(source, 'Heat-index program', blocks); altSay(''); altRender();
 }
 // ---- who teaches what: taken from the regular schedule (class + subject) ----
+const ALT_CANON = { mkom: 'komunikasyon', ecomm: 'effectivecomm', effectivecommunication: 'effectivecomm', genscience: 'generalscience', gensci: 'generalscience', genmath: 'generalmathematics', perdev: 'personaldevelopment', entrep: 'entrepreneurship', ict: 'ictspecialization', esp: 'valueseducation', ap: 'araling panlipunan'.replace(/ /g, ''), math: 'mathematics', hgp: 'homeroomguidance', fil: 'filipino', eng: 'english', pr2: 'practicalresearch2', pr1: 'practicalresearch1' };
+function altCanon(s) { const k = String(adSubject(s) || s).toLowerCase().replace(/[^a-z0-9ñ]/g, ''); return ALT_CANON[k] || k; }
+function altSameSubj(a, b) { if (!a || !b) return false; if (a === b) return true; const m = Math.min(a.length, b.length); return m >= 5 && (a.startsWith(b) || b.startsWith(a) || a.endsWith(b) || b.endsWith(a)); }
+// ---- who teaches what: taken from the regular schedule (class + subject + weekday + term) ----
 function altPlan(a) {
   const idx = {};
-  adAllTeachers().forEach(o => (o.scheduleNormal || o.schedule || []).filter(e => !e.coverOf).forEach(e => (e.classIds || []).forEach(cid => { (idx[cid] = idx[cid] || []).push({ id: o.id, subject: e.subject, key: subjKey(adSubject(e.subject)) }); })));
-  const find = (cid, subj) => {
-    const k = subjKey(adSubject(subj)), L = idx[cid] || []; let m = L.find(x => x.key === k); if (m) return m;
-    const w = k.split(' ')[0]; return L.find(x => x.key && (x.key.startsWith(k) || k.startsWith(x.key) || (w.length > 3 && x.key.split(' ')[0] === w))) || null;
+  adAllTeachers().forEach(o => (o.scheduleNormal || o.schedule || []).filter(e => !e.coverOf).forEach(e => (e.classIds || []).forEach(cid => { (idx[cid] = idx[cid] || []).push({ id: o.id, subject: e.subject, key: altCanon(e.subject), term: e.term == null ? 'all' : e.term, day: e.day }); })));
+  // One answer per term the regular schedule uses for this class and subject: the teacher who has it on that weekday, else the one who has it most.
+  const find = (cid, subj, day) => {
+    const k = altCanon(subj), all = idx[cid] || [], ex = all.filter(x => x.key === k), L = ex.length ? ex : all.filter(x => altSameSubj(x.key, k)), out = [];
+    Array.from(new Set(L.map(x => String(x.term)))).forEach(tm => {
+      const LT = L.filter(x => String(x.term) === tm), cnt = {}; LT.forEach(x => { cnt[x.id] = (cnt[x.id] || 0) + 1; });
+      const pick = LT.find(x => x.day === day) || LT.slice().sort((p, q) => cnt[q.id] - cnt[p.id])[0];
+      out.push({ id: pick.id, subject: pick.subject, term: pick.term });
+    });
+    return out;
   };
   const map = new Map(), missing = new Map(); let periods = 0;
-  a.blocks.forEach(b => b.classIds.forEach(cid => b.rows.forEach(r => (a.mode === 'same' ? [1] : [1, 2]).forEach(dn => {
+  const offG = new Set(a.offGrades || []), gradeOf = id => (DB.classes.find(c => c.id === id) || {}).name;
+  a.blocks.forEach(b => b.classIds.forEach(cid => offG.has(gradeOf(cid)) ? 0 : b.rows.forEach(r => (a.mode === 'same' ? [1] : [1, 2]).forEach(dn => {
     const s = (dn === 1 ? r.d1 : r.d2); if (!s) return;
-    const mk = cid + '|' + subjKey(adSubject(s)); const hit = (a.manual || {})[mk] ? { id: a.manual[mk], subject: adSubject(s) } : find(cid, s);
-    if (!hit) { if (!missing.has(mk)) missing.set(mk, { mk, cid, subject: s }); return; }
+    const mk = cid + '|' + subjKey(adSubject(s)), man = (a.manual || {})[mk];
     (dn === 1 ? a.days1 : a.days2).forEach(day => {
-      const k = [hit.id, hit.subject, day, r.start, r.end].join('|');
-      if (!map.has(k)) map.set(k, { owner: hit.id, e: { id: uid('sch'), src: 'admin', heat: true, subject: hit.subject, classIds: [], day, start: adHm(r.start), end: adHm(r.end), term: 'all' } });
-      const m = map.get(k); if (!m.e.classIds.includes(cid)) m.e.classIds.push(cid);
+      const hits = man ? [{ id: man, subject: adSubject(s), term: 'all' }] : find(cid, s, day);
+      if (!hits.length) { if (!missing.has(mk)) missing.set(mk, { mk, cid, subject: s }); return; }
+      hits.forEach(hit => {
+        const k = [hit.id, hit.subject, day, r.start, r.end, hit.term].join('|');
+        if (!map.has(k)) map.set(k, { owner: hit.id, e: { id: uid('sch'), src: 'admin', heat: true, subject: hit.subject, classIds: [], day, start: adHm(r.start), end: adHm(r.end), term: hit.term } });
+        const m = map.get(k); if (!m.e.classIds.includes(cid)) m.e.classIds.push(cid);
+      });
     });
   }))));
   const byOwner = {}; map.forEach(m => { (byOwner[m.owner] = byOwner[m.owner] || []).push(m.e); periods++; });
@@ -2817,13 +2834,14 @@ function altActivate(id) {
   const plan = altPlan(set);
   if (!plan.periods) { toast('No teacher was matched to any period, so nothing would change. Upload the regular schedule first, or pick teachers for the subjects (Edit).', 'warning'); return false; }
   if (altHeat()) altRevert();
-  const cls = new Set(); set.blocks.forEach(b => b.classIds.forEach(c => cls.add(c)));
+  const cls = new Set(), offG = new Set(set.offGrades || []); set.blocks.forEach(b => b.classIds.forEach(c => { const k = DB.classes.find(x => x.id === c); if (k && !offG.has(k.name)) cls.add(c); }));
   const plan2 = altPlan(set); let touched = 0;
   adAllTeachers().forEach(o => {
     const mine = plan2.byOwner[o.id], teaches = (o.schedule || []).some(e => !e.coverOf && (e.classIds || []).some(c => cls.has(c)));
     if (!mine && !teaches) return;
     o.scheduleNormal = (o.schedule || []).filter(e => !e.coverOf);
-    o.schedule = (o.schedule || []).filter(e => e.coverOf).concat(mine || []);
+    const keep = []; (o.schedule || []).filter(e => !e.coverOf).forEach(e => { const rest = (e.classIds || []).filter(c => !cls.has(c)); if (rest.length === (e.classIds || []).length) keep.push(e); else if (rest.length) keep.push(Object.assign({}, e, { id: uid('sch'), classIds: rest })); });
+    o.schedule = (o.schedule || []).filter(e => e.coverOf).concat(keep, mine || []);
     (mine || []).forEach(e => ensurePortalSubject(e.subject, DB.teachers.some(t => t.id === o.id) ? o.id : ''));
     touched++;
   });
@@ -2837,7 +2855,8 @@ function altSaveDraft(use) {
   if (!a.blocks.length) { toast('Add at least one group of sections first.', 'warning'); return; }
   const bad = a.blocks.find(b => !b.classIds.length); if (bad) { toast('Pick the sections for "' + (bad.label || 'a group') + '".', 'warning'); return; }
   if (!a.days1.length || (a.mode !== 'same' && !a.days2.length)) { toast('Pick the weekdays first.', 'warning'); return; }
-  const rec = { id: a.id || uid('set'), name: (a.name || '').trim() || 'My schedule', source: a.source || '', mode: a.mode, days1: a.days1.slice(), days2: a.days2.slice(), blocks: JSON.parse(JSON.stringify(a.blocks)), manual: Object.assign({}, a.manual), at: new Date().toISOString() };
+  if (altGradesOf(a).every(g => (a.offGrades || []).includes(g))) { toast('Keep at least one grade level turned on.', 'warning'); return; }
+  const rec = { id: a.id || uid('set'), name: (a.name || '').trim() || 'My schedule', source: a.source || '', mode: a.mode, days1: a.days1.slice(), days2: a.days2.slice(), blocks: JSON.parse(JSON.stringify(a.blocks)), manual: Object.assign({}, a.manual), offGrades: (a.offGrades || []).slice(), at: new Date().toISOString() };
   const L = altSets(), i = L.findIndex(s => s.id === rec.id); if (i >= 0) L[i] = rec; else L.push(rec);
   const wasOn = altHeat() && altHeat().setId === rec.id;
   alt = null; altSay('');
@@ -2856,6 +2875,21 @@ function altMissingHtml(a) {
   Array.from(by.values()).slice(0, 20).forEach(x => { h += '<div class="flex items-center gap-2 text-xs"><span class="flex-1 min-w-0 truncate">' + escapeHtml(x.subject) + ' · ' + x.n + ' section' + (x.n > 1 ? 's' : '') + '</span><select data-alt-man="' + escapeHtml(x.k) + '" class="' + adInp + ' !w-40 !py-1"><option value="">Left out</option>' + teachers.map(t => '<option value="' + t.id + '">' + escapeHtml(t.name) + '</option>').join('') + '</select></div>'; });
   return h + '</div>';
 }
+function altGradesOf(a) { return Array.from(new Set(a.blocks.reduce((x, b) => x.concat(b.classIds), []).map(id => (DB.classes.find(c => c.id === id) || {}).name).filter(Boolean))).sort((p, q) => p.localeCompare(q, undefined, { numeric: true })); }
+function altGradeSubjects(b) {
+  const names = new Set(b.classIds.map(id => (DB.classes.find(c => c.id === id) || {}).name).filter(Boolean)), ids = new Set(DB.classes.filter(c => names.has(c.name)).map(c => c.id)), out = [];
+  adAllTeachers().forEach(o => (o.scheduleNormal || o.schedule || []).filter(e => !e.coverOf && (e.classIds || []).some(c => ids.has(c))).forEach(e => { const n = adSubject(e.subject); if (n && !out.includes(n)) out.push(n); }));
+  if (!out.length) DB.subjects.forEach(x => { if (x.name && !out.includes(x.name)) out.push(x.name); });
+  return out.sort();
+}
+function altSubjSelect(p, f, val, row, gs) {
+  const seen = new Set(), opt = (v, lab) => { const k = subjKey(v); if (!v || seen.has(k)) return ''; seen.add(k); return '<option value="' + escapeHtml(v) + '"' + (v === val ? ' selected' : '') + '>' + escapeHtml(lab || v) + '</option>'; };
+  let h = '<option value="">— none —</option>';
+  if (val) { seen.add(subjKey(val)); h += '<option value="' + escapeHtml(val) + '" selected>' + escapeHtml(val) + '</option>'; }
+  (row.opts || []).forEach(o => { h += opt(o, o + ' (from the file)'); });
+  gs.forEach(o => { h += opt(o); });
+  return '<select data-alt-in="' + p + ':' + f + '" class="' + adInp + ' !px-2 !py-1.5">' + h + '<option value="__other">Other subject…</option></select>';
+}
 function altRender() {
   const el = document.getElementById('alt-review'); if (!el) return;
   if (!alt) { el.innerHTML = ''; return; }
@@ -2868,13 +2902,16 @@ function altRender() {
     '<div class="mb-3 text-sm"><label class="mr-4"><input type="radio" name="alt-mode" data-alt-mode="alt" ' + (same ? '' : 'checked') + '> Two alternating days (Day 1 / Day 2)</label><label><input type="radio" name="alt-mode" data-alt-mode="same" ' + (same ? 'checked' : '') + '> Same every day</label></div>' +
     '<div class="mb-1 text-sm font-medium">' + (same ? 'Days it runs' : 'Day 1 / odd days (first subject of each pair)') + '</div><div class="mb-2">' + dayBox('days1') + '</div>' +
     (same ? '' : '<div class="mb-1 text-sm font-medium">Day 2 / even days (second subject)</div><div class="mb-3">' + dayBox('days2') + '</div>');
+  const gl = altGradesOf(a);
+  if (gl.length) h += '<div class="mb-3"><div class="mb-1 text-sm font-medium">Use this schedule for</div><div>' + gl.map(g => '<label class="inline-flex items-center gap-1 text-sm mr-3"><input type="checkbox" data-alt-grade="' + escapeHtml(g) + '" ' + ((a.offGrades || []).includes(g) ? '' : 'checked') + '> ' + escapeHtml(g) + '</label>').join('') + '</div><p class="text-xs text-slate-500 dark:text-slate-400">Grade levels you untick keep their old schedule.</p></div>';
   a.blocks.forEach((b, bi) => {
     h += '<div class="border border-slate-200 dark:border-slate-800 rounded-lg p-3 mb-3"><div class="flex items-center gap-2"><input data-alt-lab="' + bi + '" class="' + adInp + ' !py-1 font-semibold" value="' + escapeHtml(b.label) + '" aria-label="Group name"><button type="button" data-alt-rmb="' + bi + '" class="text-xs text-red-600 underline whitespace-nowrap">Remove group</button></div><div class="flex flex-wrap gap-1 my-1.5">' +
       b.classIds.map(id => '<span class="text-xs rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 pl-2 pr-1 py-0.5">' + escapeHtml(altClsName(id)) + ' <button type="button" data-alt-rc="' + bi + ':' + id + '" aria-label="Remove" class="px-1">×</button></span>').join('') + '</div>';
     b.unresolved.forEach((n, ni) => { h += '<div class="flex items-center gap-2 text-xs my-1"><span class="text-red-600">Unknown section "' + escapeHtml(n) + '"</span><select data-alt-pick="' + bi + ':' + ni + '" class="' + adInp + ' !w-44 !py-1">' + addOpts + '</select></div>'; });
     h += '<select data-alt-add="' + bi + '" class="' + adInp + ' !w-48 !py-1 my-1">' + addOpts + '</select>' +
       '<div class="grid ' + cols + ' gap-1.5 text-[11px] text-slate-500 mt-2"><span>Time</span><span>' + (same ? 'Subject' : 'Day 1') + '</span>' + (same ? '' : '<span>Day 2</span>') + '<span></span></div>';
-    b.rows.forEach((r, ri) => { const p = bi + ':' + ri; h += '<div class="grid ' + cols + ' gap-1.5 mt-1"><input data-alt-in="' + p + ':t" class="' + adInp + ' !px-2 !py-1" value="' + altFmt(r.start) + '-' + altFmt(r.end) + '"><input data-alt-in="' + p + ':d1" class="' + adInp + ' !px-2 !py-1" value="' + escapeHtml(r.d1) + '">' + (same ? '' : '<input data-alt-in="' + p + ':d2" class="' + adInp + ' !px-2 !py-1" value="' + escapeHtml(r.d2) + '">') + '<button type="button" data-alt-del="' + p + '" class="text-slate-400 hover:text-red-600" aria-label="Remove row">×</button></div>'; });
+    const gs = altGradeSubjects(b);
+    b.rows.forEach((r, ri) => { const p = bi + ':' + ri; h += '<div class="border-t border-slate-100 dark:border-slate-800 mt-2 pt-2"><div class="flex items-center gap-2"><label class="text-[11px] text-slate-500">Time</label><input data-alt-in="' + p + ':t" class="' + adInp + ' !px-2 !py-1 !w-36" value="' + altFmt(r.start) + '-' + altFmt(r.end) + '"><span class="flex-1"></span><button type="button" data-alt-del="' + p + '" class="text-xs text-slate-500 hover:text-red-600 underline">Remove</button></div><div class="grid ' + (same ? 'grid-cols-1' : 'grid-cols-2') + ' gap-2 mt-1.5"><div><span class="text-[11px] text-slate-500">' + (same ? 'Subject' : 'Day 1') + '</span>' + altSubjSelect(p, 'd1', r.d1, r, gs) + '</div>' + (same ? '' : '<div><span class="text-[11px] text-slate-500">Day 2</span>' + altSubjSelect(p, 'd2', r.d2, r, gs) + '</div>') + '</div></div>'; });
     h += '<button type="button" data-alt-addrow="' + bi + '" class="text-xs underline mt-2">+ Add period</button></div>';
   });
   h += '<button type="button" id="alt-addblock" class="' + adBtn2 + ' mb-3">+ Add group of sections</button>' +
@@ -2892,7 +2929,7 @@ function altRenderTab() {
   if (H && !H.setId) h += card(true, escapeHtml(H.name), H.teachers + ' teachers · ' + H.periods + ' periods', '<button type="button" id="alt-restore" class="' + sm + '">Turn off (back to regular)</button>');
   sets.forEach(s => {
     const on = !!(H && H.setId === s.id), n = s.blocks.reduce((a, b) => a + b.classIds.length, 0);
-    h += card(on, escapeHtml(s.name), s.blocks.length + ' groups · ' + n + ' sections · ' + (s.mode === 'same' ? 'same every day' : 'Day 1 / Day 2') + (s.source ? ' · ' + escapeHtml(s.source) : ''),
+    h += card(on, escapeHtml(s.name), s.blocks.length + ' groups · ' + n + ' sections · ' + (s.mode === 'same' ? 'same every day' : 'Day 1 / Day 2') + (s.source ? ' · ' + escapeHtml(s.source) : '') + '<span class="block mt-1.5">' + altGradesOf(s).map(g => { const off = (s.offGrades || []).includes(g); return '<button type="button" data-alt-gr="' + s.id + '|' + escapeHtml(g) + '" class="text-[11px] rounded-full border px-2 py-0.5 mr-1 mb-1 ' + (off ? 'border-slate-300 text-slate-400 line-through' : 'border-indigo-500 text-indigo-700 dark:text-indigo-300') + '">' + escapeHtml(g.replace('Grade ', 'G')) + (off ? ' old' : ' new') + '</button>'; }).join('') + '</span>',
       (on ? '<button type="button" id="alt-restore" class="' + sm + '">Turn off</button>' : '<button type="button" data-alt-on="' + s.id + '" class="' + adBtn + ' !text-xs !px-2.5 !py-1.5">Turn on</button>') + '<button type="button" data-alt-edit="' + s.id + '" class="' + sm + '">Edit</button><button type="button" data-alt-delset="' + s.id + '" class="' + sm + ' text-red-600">Delete</button>');
   });
   st.innerHTML = h; altRender();
@@ -2907,6 +2944,15 @@ document.addEventListener('click', ev => {
   if (g('#alt-restore')) { askConfirm('Go back to the regular schedule?', 'Everyone goes back to the regular class schedule right away, on all devices.', altRestore); return; }
   let b;
   if ((b = g('[data-alt-on]'))) { const id = b.dataset.altOn, s = altSets().find(x => x.id === id); if (s) askConfirm('Turn on "' + s.name + '"?', 'Every teacher and student switches to this schedule right away, on all devices. The regular schedule is kept and you can switch back any time.', () => { if (altActivate(id)) { renderAdminSchedule(); toast('"' + s.name + '" is ON for everyone.', 'success'); } }); return; }
+  if ((b = g('[data-alt-gr]'))) {
+    const i = b.dataset.altGr.indexOf('|'), id = b.dataset.altGr.slice(0, i), gname = b.dataset.altGr.slice(i + 1), s = altSets().find(x => x.id === id); if (!s) return;
+    const off = new Set(s.offGrades || []); off.has(gname) ? off.delete(gname) : off.add(gname);
+    if (altGradesOf(s).every(x => off.has(x))) { toast('Keep at least one grade level on.', 'warning'); return; }
+    s.offGrades = Array.from(off);
+    const on = altHeat() && altHeat().setId === id;
+    if (on) { if (!altActivate(id)) { renderAdminSchedule(); return; } toast(gname + ' now uses its ' + (off.has(gname) ? 'old' : 'new') + ' schedule.', 'success'); } else saveDB();
+    renderAdminSchedule(); return;
+  }
   if ((b = g('[data-alt-edit]'))) { const s = altSets().find(x => x.id === b.dataset.altEdit); if (s) { alt = JSON.parse(JSON.stringify(s)); alt.manual = alt.manual || {}; altRender(); const r = document.getElementById('alt-review'); if (r) r.scrollIntoView({ behavior: 'smooth', block: 'start' }); } return; }
   if ((b = g('[data-alt-delset]'))) { const id = b.dataset.altDelset, s = altSets().find(x => x.id === id); if (s) askConfirm('Delete "' + s.name + '"?', (altHeat() && altHeat().setId === id ? 'It is ON now, so everyone goes back to the regular schedule. ' : '') + 'This cannot be undone.', () => { if (altHeat() && altHeat().setId === id) altRevert(); const L = altSets(); L.splice(L.findIndex(x => x.id === id), 1); if (saveDB()) { renderAdminSchedule(); toast('Deleted.', 'success'); } }); return; }
   if (!alt) return;
@@ -2924,10 +2970,12 @@ document.addEventListener('change', ev => {
   if (t.id === 'alt-name') { alt.name = t.value.trim(); return; }
   if (t.dataset.altMode) { alt.mode = t.dataset.altMode; if (alt.mode === 'same') alt.days1 = SCHOOL_DAYS.slice(); else if (alt.days1.length === 5) { alt.days1 = ['Mon', 'Wed', 'Fri']; alt.days2 = ['Tue', 'Thu']; } altRender(); return; }
   if (t.dataset.altLab !== undefined) { alt.blocks[+t.dataset.altLab].label = t.value.trim(); return; }
+  if (t.dataset.altGrade) { const g = t.dataset.altGrade, s = new Set(alt.offGrades || []); t.checked ? s.delete(g) : s.add(g); alt.offGrades = Array.from(s); upd(); return; }
   if (t.dataset.altDay) { const [k, d] = t.dataset.altDay.split(':'); const s = new Set(alt[k]); t.checked ? s.add(d) : s.delete(d); alt[k] = SCHOOL_DAYS.filter(x => s.has(x)); upd(); return; }
   if (t.dataset.altIn) {
     const [b, r, f] = t.dataset.altIn.split(':'), row = alt.blocks[+b].rows[+r];
     if (f === 't') { const tm = altTimeParse(t.value); if (tm) { row.start = tm[0]; row.end = tm[1]; t.classList.remove('border-red-500'); t.value = altFmt(tm[0]) + '-' + altFmt(tm[1]); } else { t.classList.add('border-red-500'); toast('Write the time like 5:45-6:20', 'warning'); return; } }
+    else if (t.value === '__other') { const v = (prompt('Type the subject name') || '').trim(); if (v) row[f] = v; altRender(); return; }
     else row[f] = t.value.trim();
     upd(); return;
   }
