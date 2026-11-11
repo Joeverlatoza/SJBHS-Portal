@@ -40,6 +40,36 @@
   } catch (e) {}
 })();
 </script>
+<script>
+/* Messenger / Facebook / Instagram open links in their own small browser, which is slow, forgets data and can reload by itself. Send the person to their real browser. */
+(function () {
+  try {
+    var ua = navigator.userAgent || '';
+    if (!/FBAN|FBAV|FB_IAB|FBIOS|Messenger|Instagram/i.test(ua)) return;
+    var skip = false; try { skip = sessionStorage.getItem('iab_skip') === '1'; } catch (e) {}
+    if (skip) return;
+    var android = /Android/i.test(ua), link = location.href.split('#')[0];
+    var intent = 'intent://' + location.host + location.pathname + location.search + '#Intent;scheme=https;action=android.intent.action.VIEW;end';
+    document.addEventListener('DOMContentLoaded', function () {
+      var d = document.createElement('div');
+      d.id = 'iab-gate';
+      d.setAttribute('style', 'position:fixed;inset:0;z-index:2147483647;background:#fff;color:#1a1716;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;padding:24px;overflow:auto');
+      d.innerHTML = '<div style="max-width:360px;width:100%;text-align:center"><div style="font-size:20px;font-weight:700;margin-bottom:8px">Open in your browser</div>' +
+        '<p style="font-size:14px;line-height:1.5;color:#524d4b;margin:0 0 16px">You opened this inside Messenger. It can be slow and may lose what you typed. Please open the portal in your browser (Chrome, Brave, Safari…).</p>' +
+        (android ? '<a id="iab-open" href="' + intent + '" style="display:block;background:#7b1e2b;color:#fff;border-radius:8px;padding:12px;font-weight:600;text-decoration:none;margin-bottom:10px">Open in browser</a>' : '') +
+        '<button id="iab-copy" type="button" style="display:block;width:100%;background:#fff;border:1px solid #d0cac8;border-radius:8px;padding:12px;font-size:14px;margin-bottom:10px">Copy link</button>' +
+        '<p style="font-size:13px;color:#524d4b;margin:0 0 14px">Or tap the <b>⋯</b> or <b>⋮</b> menu at the top and choose <b>Open in browser</b> (on iPhone: <b>Open in Safari</b>).</p>' +
+        '<button id="iab-skip" type="button" style="background:none;border:0;font-size:12px;color:#6e6866;text-decoration:underline">Continue here anyway</button></div>';
+      document.body.appendChild(d);
+      document.getElementById('iab-copy').onclick = function () {
+        var b = this, done = function () { b.textContent = 'Link copied'; };
+        try { navigator.clipboard.writeText(link).then(done, function () { prompt('Copy this link', link); }); } catch (e) { prompt('Copy this link', link); }
+      };
+      document.getElementById('iab-skip').onclick = function () { try { sessionStorage.setItem('iab_skip', '1'); } catch (e) {} d.remove(); };
+    });
+  } catch (e) {}
+})();
+</script>
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
   (function () {
@@ -1586,27 +1616,38 @@ function clearDirty() { try { localStorage.removeItem(DIRTY_KEY); } catch (e) {}
 // Attendance taken offline lives in logs and sessions: keep this device's copy of those.
 // Students and teachers are only added when missing. Portal data is never edited offline.
 function mergeOfflineWork(local) {
-  if (!local) return;
+  if (!local) return false;
+  let changed = false;
+  // Accounts removed on this device stay removed.
+  if (Array.isArray(local.removedIds)) { DB.removedIds = DB.removedIds || []; local.removedIds.forEach(id => { if (!DB.removedIds.includes(id)) { DB.removedIds.push(id); changed = true; } }); ['students', 'teachers'].forEach(k => { const n = (DB[k] || []).length; DB[k] = (DB[k] || []).filter(x => !DB.removedIds.includes(x.id)); if (DB[k].length !== n) changed = true; }); }
   ['logs', 'sessions'].forEach(k => {
     if (!Array.isArray(local[k])) return;
     if (!Array.isArray(DB[k])) DB[k] = [];
     local[k].forEach(x => {
       if (!x || !x.id) return;
       const i = DB[k].findIndex(y => y.id === x.id);
-      if (i < 0) DB[k].push(x); else if (k === 'logs') DB[k][i] = x;
+      if (i < 0) { DB[k].push(x); changed = true; } else if (k === 'logs' && JSON.stringify(DB[k][i]) !== JSON.stringify(x)) { DB[k][i] = x; changed = true; }
     });
   });
+  // The signed-in person's own record: what they just saved on this device (grade and section, profile) wins over the older cloud copy.
+  let myId = ''; try { const ss = readSession(); myId = (ss && ss.userId) || (DB.auth && DB.auth.userId) || ''; } catch (e) {}
   ['students', 'teachers'].forEach(k => {
     if (!Array.isArray(local[k])) return;
     if (!Array.isArray(DB[k])) DB[k] = [];
-    local[k].forEach(x => { if (x && x.id && !(DB.removedIds || []).includes(x.id) && !DB[k].some(y => y.id === x.id)) DB[k].push(x); });
+    local[k].forEach(x => {
+      if (!x || !x.id || (DB.removedIds || []).includes(x.id)) return;
+      const i = DB[k].findIndex(y => y.id === x.id);
+      if (i < 0) { DB[k].push(x); changed = true; }
+      else if (x.id === myId && JSON.stringify(DB[k][i]) !== JSON.stringify(x)) { DB[k][i] = Object.assign({}, DB[k][i], x); changed = true; }
+    });
   });
+  return changed;
 }
 let cloudChannel = null;
 function subscribeRealtime() {
   if (cloudChannel || !sb) return;
   cloudChannel = sb.channel('school').on('postgres_changes', { event: '*', schema: 'public', table: 'school_state' }, pl => {
-    if (pl.new && pl.new.data) { applyRemote(pl.new.data); refreshAfterRemoteChange(); }
+    if (pl.new && pl.new.data) { const local = isDirty() ? JSON.parse(JSON.stringify(dbNoAuth())) : null; applyRemote(pl.new.data); if (local && mergeOfflineWork(local)) saveDB(); refreshAfterRemoteChange(); }
   }).subscribe();
 }
 function resyncAfterOffline() {
@@ -1672,7 +1713,7 @@ function saveDB() {
     localStorage.setItem(DB_KEY, JSON.stringify(dbNoAuth()));
     localStorage.setItem(SESSION_KEY, JSON.stringify(DB.auth || null));
     if (!navigator.onLine || !cloudDocRef) markDirty();
-    if (cloudDocRef) pushToCloud();
+    if (cloudDocRef) { markDirty(); pushToCloud(); }
     return true;
   }
   catch (e) { toast('Could not save: device storage is full. Try a smaller photo.', 'error'); return false; }
