@@ -274,6 +274,14 @@ html[data-font="easy"] .view-section h2, html[data-font="easy"] #page-title, htm
 .dark .home-d { color: #9d9795; }
 .home-tile::after { content: "→"; position: absolute; right: 14px; top: 16px; color: #d0cac8; font-size: 16px; transition: color .15s, transform .15s; }
 .home-tile:hover::after { color: var(--maroon); transform: translateX(3px); }
+/* faint school seal on the badge and behind the learning area */
+#print-card, #sc-card { position: relative; overflow: hidden; }
+#print-card::before, #sc-card::before { content: ""; position: absolute; right: -34px; top: 50%; width: 210px; height: 210px; margin-top: -105px; background: var(--seal, none) center / contain no-repeat; opacity: .14; pointer-events: none; z-index: 0; }
+#print-card > *, #sc-card > * { position: relative; z-index: 1; }
+#app header, #app aside { position: relative; z-index: 2; }
+.view-section[data-view="learning"].active::before { content: ""; position: fixed; inset: 0; background: var(--seal, none) center 52% / min(78vw, 460px) no-repeat; opacity: .07; pointer-events: none; z-index: 0; }
+.dark .view-section[data-view="learning"].active::before { opacity: .09; }
+.view-section[data-view="learning"] > * { position: relative; z-index: 1; }
 /* login */
 #screen-login > div { align-items: flex-start !important; padding-top: max(1.25rem, 5vh) !important; }
 #login-school-name { font-size: 22px; font-weight: 600; }
@@ -11461,7 +11469,9 @@ function init() {
     (typeof adProg === 'function' ? (adProg().people || []) : []).forEach(t => (t.schedule || []).forEach(e => { if (e.day === day && !e.coverOf && (e.classIds || []).includes(s.classId) && termOk(e) && !out.some(o => o.e.start === e.start && o.e.subject === e.subject)) out.push({ e, t }); }));
     return out.sort((a, b) => String(a.e.start).localeCompare(String(b.e.start)));
   }
+  function seal() { const u = (document.querySelector('.app-seal') || {}).src; if (u && document.documentElement.dataset.seal !== '1') { document.documentElement.style.setProperty('--seal', 'url("' + u + '")'); document.documentElement.dataset.seal = '1'; } }
   function home() {
+    seal();
     const a = DB && DB.auth; const old = document.getElementById('greet-card'); if (old) old.remove(); const oq = document.getElementById('home-extra'); if (oq) oq.remove();
     if (!a) return;
     const sec = document.querySelector('.view-section.active'); if (!sec) return;
@@ -11493,7 +11503,7 @@ function init() {
   const bn = document.getElementById('bnav'); if (bn) bn.remove();
   document.querySelectorAll('#screen-login .max-w-md').forEach(c => { if (!c.querySelector('#login-foot')) { const f = document.createElement('p'); f.id = 'login-foot'; f.textContent = '© ' + new Date().getFullYear() + ' San Juan Baño High School · Arayat, Pampanga'; c.appendChild(f); } });
   const orig = goToView;
-  window.goToView = goToView = function (v) { orig(v); try { home(); } catch (e) {} };
+  window.goToView = goToView = function (v) { orig(v); try { seal(); home(); } catch (e) {} };
   document.addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-lang-set]')) setTimeout(() => { try { home(); } catch (x) {} }, 50); });
 })();
 document.addEventListener('DOMContentLoaded', init);
