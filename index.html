@@ -228,36 +228,52 @@ html[data-font="easy"] .view-section h2, html[data-font="easy"] #page-title, htm
 .nav-btn.bg-indigo-50 { box-shadow: inset 3px 0 0 var(--maroon); font-weight: 600; }
 .dark .nav-btn.bg-indigo-50 { box-shadow: inset 3px 0 0 #d9808c; }
 #app aside > div:first-child .font-semibold { font-family: 'Source Serif 4', Georgia, serif; }
-/* greeting card */
-#greet-card { background: var(--maroon); color: #fff; border-radius: 8px; padding: 18px 20px; margin: 0 0 16px; position: relative; overflow: hidden; }
-@media (min-width: 768px) { #greet-card { padding: 22px 26px; margin-bottom: 20px; } }
-#greet-card::after { content: ""; position: absolute; right: -28px; top: -28px; width: 120px; height: 120px; border-radius: 50%; border: 18px solid rgba(201,162,39,.22); pointer-events: none; }
-#greet-card .greet-eyebrow { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: #f2d98a; font-weight: 600; }
-#greet-card .greet-name { font-size: 22px; line-height: 1.2; font-weight: 600; margin-top: 4px; overflow-wrap: anywhere; }
-#greet-card .greet-sub { font-size: 13px; color: rgba(255,255,255,.82); margin-top: 6px; }
-#greet-card .greet-chip { display: inline-block; margin-top: 10px; font-size: 12px; font-weight: 600; background: #f2d98a; color: #3f0f17; padding: 3px 10px; border-radius: 6px; }
+/* home: hero with animated seal, quick access tiles, today's classes */
+#greet-card { background: var(--maroon); color: #fff; border-radius: 10px; padding: 22px 22px 20px; margin: 0 0 16px; position: relative; overflow: hidden; border-bottom: 3px solid var(--gold); }
+@media (min-width: 768px) { #greet-card { padding: 30px 32px 28px; margin-bottom: 22px; } }
+#greet-card > * { position: relative; z-index: 1; }
+#greet-card .greet-seal { position: absolute; z-index: 0; right: -18px; top: 50%; width: 170px; height: 170px; margin-top: -85px; border-radius: 50%; opacity: .16; filter: grayscale(.2); animation: sealfloat 9s ease-in-out infinite, sealin 1.2s ease-out both; pointer-events: none; }
+@media (min-width: 768px) { #greet-card .greet-seal { width: 240px; height: 240px; margin-top: -120px; right: 28px; } }
+@keyframes sealfloat { 0%, 100% { transform: translateY(0) rotate(0deg) scale(1); } 50% { transform: translateY(-8px) rotate(5deg) scale(1.04); } }
+@keyframes sealin { from { opacity: 0; transform: scale(.8) rotate(-10deg); } to { opacity: .16; } }
+@media (prefers-reduced-motion: reduce) { #greet-card .greet-seal { animation: none; } }
+#greet-card .greet-eyebrow { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: #f2d98a; font-weight: 600; }
+#greet-card .greet-name { font-size: 24px; line-height: 1.2; font-weight: 600; margin-top: 6px; overflow-wrap: anywhere; max-width: 85%; }
+@media (min-width: 768px) { #greet-card .greet-name { font-size: 32px; } }
+#greet-card .greet-sub { font-size: 13px; color: rgba(255,255,255,.85); margin-top: 8px; max-width: 85%; }
+#greet-card .greet-chip { display: inline-block; margin-top: 12px; font-size: 12px; font-weight: 600; background: #f2d98a; color: #3f0f17; padding: 3px 10px; border-radius: 6px; }
 .dark #greet-card { background: #4a121c; }
-.max-w-6xl > #greet-card, .view-section > #greet-card { max-width: 72rem; }
-/* tab bar for phones */
-#bnav { display: none; }
-@media (max-width: 767px) {
-  #bnav { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: #fff; border-top: 1px solid #e5e1df; padding-bottom: env(safe-area-inset-bottom); }
-  .dark #bnav { background: #1a1716; border-top-color: #272322; }
-  #bnav button { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 8px 2px 7px; font-size: 10.5px; font-weight: 500; color: #6e6866; position: relative; background: none; border: 0; }
-  .dark #bnav button { color: #9d9795; }
-  #bnav button svg { width: 20px; height: 20px; }
-  #bnav button span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #bnav button.on { color: var(--maroon); font-weight: 700; }
-  .dark #bnav button.on { color: #e9bcc2; }
-  #bnav button.on::before { content: ""; position: absolute; top: 0; left: 24%; right: 24%; height: 3px; background: var(--maroon); border-radius: 0 0 3px 3px; }
-  .dark #bnav button.on::before { background: #d9808c; }
-  #app main { padding-bottom: calc(4.5rem + env(safe-area-inset-bottom)) !important; }
-  #help-fab { bottom: calc(4.6rem + env(safe-area-inset-bottom)) !important; left: .75rem !important; }
-  #toast-container { bottom: calc(4.6rem + env(safe-area-inset-bottom)) !important; right: .75rem !important; left: .75rem; width: auto !important; max-width: none !important; }
-}
-#help-fab { background: #fff !important; color: var(--maroon) !important; border: 1px solid #d78f99; box-shadow: 0 2px 8px rgba(0,0,0,.12) !important; }
-.dark #help-fab { background: #1a1716 !important; color: #e9bcc2 !important; border-color: #51131d; }
-#toast-container > div { border-left-width: 4px; }
+.home-h { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; font-weight: 700; color: #6e6866; margin: 0 0 10px; }
+.dark .home-h { color: #9d9795; }
+.home-h2 { margin-top: 4px; }
+.home-card { background: #fff; border: 1px solid #e5e1df; border-radius: 10px; padding: 16px 16px 6px; margin-bottom: 18px; }
+.dark .home-card { background: #1a1716; border-color: #272322; }
+.home-row { display: flex; gap: 14px; align-items: center; padding: 10px 0; border-top: 1px solid #f1eeed; }
+.home-row:first-of-type { border-top: 0; }
+.dark .home-row { border-top-color: #272322; }
+.home-time { width: 4.6rem; flex-shrink: 0; font-size: 12.5px; font-weight: 600; color: var(--maroon); font-variant-numeric: tabular-nums; line-height: 1.35; border-left: 3px solid var(--gold); padding-left: 10px; }
+.home-time i { font-style: normal; color: #9d9795; font-weight: 500; }
+.dark .home-time { color: #e9bcc2; }
+.home-main b { display: block; font-size: 14.5px; font-weight: 600; }
+.home-main small { color: #6e6866; font-size: 12.5px; }
+.dark .home-main small { color: #9d9795; }
+.home-empty { font-size: 13px; color: #6e6866; padding: 4px 0 12px; }
+.home-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 22px; }
+@media (min-width: 640px) { .home-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 1100px) { .home-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.home-tile { text-align: left; background: #fff; border: 1px solid #e5e1df; border-radius: 10px; padding: 16px 14px 14px; display: flex; flex-direction: column; gap: 4px; position: relative; transition: border-color .15s, box-shadow .15s, transform .15s; }
+.home-tile:hover { border-color: var(--maroon); box-shadow: 0 6px 18px -10px rgba(123,30,43,.45); transform: translateY(-2px); }
+.home-tile:active { opacity: 1; transform: translateY(0); }
+.dark .home-tile { background: #1a1716; border-color: #272322; }
+.dark .home-tile:hover { border-color: #d9808c; box-shadow: none; }
+.home-ic { width: 40px; height: 40px; border-radius: 8px; background: #f5dde0; color: var(--maroon); display: flex; align-items: center; justify-content: center; margin-bottom: 8px; }
+.home-ic svg { width: 20px; height: 20px; }
+.dark .home-ic { background: #3f0f17; color: #e9bcc2; }
+.home-t { font-family: 'Source Serif 4', Georgia, serif; font-size: 16px; font-weight: 600; line-height: 1.2; }
+.home-d { font-size: 12.5px; color: #6e6866; line-height: 1.35; }
+.dark .home-d { color: #9d9795; }
+.home-tile::after { content: "→"; position: absolute; right: 14px; top: 16px; color: #d0cac8; font-size: 16px; transition: color .15s, transform .15s; }
+.home-tile:hover::after { color: var(--maroon); transform: translateX(3px); }
 /* login */
 #screen-login > div { align-items: flex-start !important; padding-top: max(1.25rem, 5vh) !important; }
 #login-school-name { font-size: 22px; font-weight: 600; }
@@ -11425,57 +11441,60 @@ function init() {
     renderAuthGate();
   }
 }
-/* ==================== POLISH: greeting card + phone tab bar ==================== */
+/* ==================== POLISH: home hero (animated school seal), quick access, today's classes ==================== */
 (function () {
   const L = () => { try { return localStorage.getItem('attendly_lang') === 'fil' ? 'fil' : 'en'; } catch (e) { return 'en'; } };
-  const T = { en: { gm: 'Good morning', ga: 'Good afternoon', ge: 'Good evening', more: 'More', teacher: 'Teacher', student: 'Student', admin: 'Administrator', heat: 'Heat-index schedule is on', term: 'Term', sy: 'SY' },
-              fil: { gm: 'Magandang umaga', ga: 'Magandang hapon', ge: 'Magandang gabi', more: 'Iba pa', teacher: 'Guro', student: 'Mag-aaral', admin: 'Administrator', heat: 'Naka-on ang heat-index na schedule', term: 'Term', sy: 'SY' } };
+  const T = { en: { gm: 'Good morning', ga: 'Good afternoon', ge: 'Good evening', teacher: 'Teacher', student: 'Student', admin: 'Administrator', heat: 'Heat-index schedule is on', term: 'Term', sy: 'SY', quick: 'Quick access', today: 'Today’s classes', none: 'No classes scheduled today.', open: 'Open' },
+              fil: { gm: 'Magandang umaga', ga: 'Magandang hapon', ge: 'Magandang gabi', teacher: 'Guro', student: 'Mag-aaral', admin: 'Administrator', heat: 'Naka-on ang heat-index na schedule', term: 'Term', sy: 'SY', quick: 'Mabilis na access', today: 'Mga klase ngayon', none: 'Walang klase ngayon.', open: 'Buksan' } };
   const tx = k => T[L()][k];
-  function greet() {
-    const a = DB && DB.auth; if (!a) return;
+  const TILES = {
+    teacher: [['scanner', 'Live Scanner', 'Take attendance with QR codes', 'Live Scanner'], ['roster', 'Roster Manager', 'Students, sex and sections', 'Roster Manager'], ['classroom', 'Classroom', 'Lessons, quizzes and grades', 'Classroom'], ['records', 'Attendance Records', 'Saved days for your sections', 'Attendance Records'], ['messages', 'Messages', 'Talk to students and staff', 'Messages'], ['counseling', 'Wellness', 'Counseling and support', 'Wellness'], ['settings', 'My Profile', 'Your account and settings', 'My Profile']],
+    student: [['learning', 'Learning', 'Lessons, quizzes and grades', 'Learning'], ['subjects', 'Subjects', 'Your classes and schedule', 'Subjects'], ['teachers', 'Teachers', 'Who teaches you', 'Teachers'], ['studentid', 'My ID', 'Your QR student ID', 'My ID'], ['counseling', 'Counseling', 'Someone to talk to', 'Counseling']],
+    admin: [['admin-schedule', 'Schedule', 'School programs and heat schedule', 'Schedule'], ['admin-people', 'Accounts', 'Teachers and students', 'Accounts'], ['admin-counsel', 'Counseling', 'Guidance overview', 'Counseling'], ['settings', 'Settings', 'Term, school year and more', 'Settings']]
+  };
+  const FIL = { 'Live Scanner': ['Live Scanner', 'Mag-attendance gamit ang QR'], 'Roster Manager': ['Roster Manager', 'Mga estudyante at seksyon'], Classroom: ['Klase', 'Aralin, quiz at grado'], 'Attendance Records': ['Talaan ng Pagdalo', 'Mga naka-save na araw'], Messages: ['Mensahe', 'Makipag-usap sa estudyante at guro'], Wellness: ['Wellness', 'Counseling at suporta'], 'My Profile': ['Aking Profile', 'Account at settings'], Learning: ['Pag-aaral', 'Aralin, quiz at grado'], Subjects: ['Asignatura', 'Mga klase at schedule'], Teachers: ['Mga Guro', 'Sino ang nagtuturo sa iyo'], 'My ID': ['Aking ID', 'Iyong QR na Student ID'], Counseling: ['Counseling', 'May makakausap ka'], Schedule: ['Schedule', 'Mga programa ng school'], Accounts: ['Mga Account', 'Guro at estudyante'], Settings: ['Settings', 'Term, school year at iba pa'] };
+  const ICONS = { scanner: 'scan-line', roster: 'users', classroom: 'graduation-cap', records: 'calendar-check', messages: 'message-square', counseling: 'heart-handshake', settings: 'user-cog', learning: 'book-open', subjects: 'library', teachers: 'contact', studentid: 'id-card', 'admin-schedule': 'calendar-range', 'admin-people': 'users', 'admin-counsel': 'heart-handshake' };
+  const hm = s => { const m = /^(\d{1,2}):(\d{2})/.exec(String(s || '')); if (!m) return ''; let h = +m[1]; const ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return h + ':' + m[2] + ' ' + ap; };
+  function todayClasses(s) {
+    const day = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][new Date().getDay()], out = [];
+    (DB.teachers || []).forEach(t => (t.schedule || []).forEach(e => { if (e.day === day && !e.coverOf && (e.classIds || []).includes(s.classId) && termOk(e)) out.push({ e, t }); }));
+    (typeof adProg === 'function' ? (adProg().people || []) : []).forEach(t => (t.schedule || []).forEach(e => { if (e.day === day && !e.coverOf && (e.classIds || []).includes(s.classId) && termOk(e) && !out.some(o => o.e.start === e.start && o.e.subject === e.subject)) out.push({ e, t }); }));
+    return out.sort((a, b) => String(a.e.start).localeCompare(String(b.e.start)));
+  }
+  function home() {
+    const a = DB && DB.auth; const old = document.getElementById('greet-card'); if (old) old.remove(); const oq = document.getElementById('home-extra'); if (oq) oq.remove();
+    if (!a) return;
     const sec = document.querySelector('.view-section.active'); if (!sec) return;
     const view = sec.dataset.view, show = (a.role === 'teacher' && view === 'dashboard') || (a.role === 'student' && view === 'attendance') || (a.role === 'admin' && view === 'admin');
-    const old = document.getElementById('greet-card'); if (old) old.remove();
     if (!show) return;
-    const h = new Date().getHours(), g = h < 12 ? tx('gm') : h < 18 ? tx('ga') : tx('ge');
-    let name = a.name || '', sub = '';
+    const lang = L(), h = new Date().getHours(), g = h < 12 ? tx('gm') : h < 18 ? tx('ga') : tx('ge');
+    let name = a.name || '', sub = '', me = null;
     if (a.role === 'teacher') { const t = (DB.teachers || []).find(x => x.id === a.userId); if (t && t.name) name = t.name; }
-    if (a.role === 'student') { const s = (DB.students || []).find(x => x.id === a.userId); if (s) { name = s.name || name; const c = (DB.classes || []).find(x => x.id === s.classId); if (c) sub = c.name + ' · ' + c.section; } }
-    const st = DB.settings || {}, date = new Date().toLocaleDateString(L() === 'fil' ? 'fil-PH' : undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+    if (a.role === 'student') { me = (DB.students || []).find(x => x.id === a.userId); if (me) { name = me.name || name; const c = (DB.classes || []).find(x => x.id === me.classId); if (c) sub = c.name + ' · ' + c.section; } }
+    const st = DB.settings || {}, date = new Date().toLocaleDateString(lang === 'fil' ? 'fil-PH' : undefined, { weekday: 'long', month: 'long', day: 'numeric' });
     const line = [sub, date].filter(Boolean).join(' · ') + (st.schoolYear ? ' · ' + tx('sy') + ' ' + st.schoolYear + ' · ' + tx('term') + ' ' + st.currentTerm : '');
     const heat = DB.program && DB.program.heat && DB.program.heat.on;
+    const seal = (document.querySelector('.app-seal') || {}).src || '';
     const d = document.createElement('div'); d.id = 'greet-card';
-    d.innerHTML = '<div class="greet-eyebrow">' + escapeHtml(g) + ' · ' + escapeHtml(tx(a.role)) + '</div><div class="greet-name">' + escapeHtml(name) + '</div><div class="greet-sub">' + escapeHtml(line) + '</div>' + (heat ? '<span class="greet-chip">' + escapeHtml(tx('heat')) + '</span>' : '');
-    sec.insertBefore(d, sec.firstChild);
-  }
-  const PREF = { teacher: ['dashboard', 'scanner', 'roster', 'classroom'], student: ['attendance', 'learning', 'subjects', 'studentid'], admin: ['admin', 'admin-schedule', 'admin-people', 'admin-counsel'] };
-  function tabs() {
-    const app = document.getElementById('app'), a = DB && DB.auth; if (!app) return;
-    let bar = document.getElementById('bnav');
-    if (!a || !PREF[a.role]) { if (bar) bar.remove(); return; }
-    const key = a.role + '|' + L();
-    if (!bar) { bar = document.createElement('nav'); bar.id = 'bnav'; bar.setAttribute('aria-label', 'Main'); app.appendChild(bar); }
-    if (bar.dataset.key !== key) {
-      bar.dataset.key = key; bar.innerHTML = '';
-      PREF[a.role].forEach(v => {
-        const src = document.querySelector('.nav-btn[data-view="' + v + '"]'); if (!src || src.classList.contains('hidden')) return;
-        const ic = src.querySelector('[data-lucide]'), lab = src.querySelector('span'), SH = { en: { dashboard: 'Home', scanner: 'Scanner', roster: 'Roster', classroom: 'Classroom', attendance: 'Attendance', learning: 'Learn', subjects: 'Subjects', studentid: 'My ID', admin: 'Overview', 'admin-schedule': 'Schedule', 'admin-people': 'Accounts', 'admin-counsel': 'Counseling' }, fil: { dashboard: 'Home', scanner: 'Scanner', roster: 'Roster', classroom: 'Klase', attendance: 'Pagdalo', learning: 'Aralin', subjects: 'Asignatura', studentid: 'Aking ID', admin: 'Overview', 'admin-schedule': 'Schedule', 'admin-people': 'Accounts', 'admin-counsel': 'Counseling' } };
-        const b = document.createElement('button'); b.type = 'button'; b.dataset.bview = v;
-        b.innerHTML = '<i data-lucide="' + (ic ? ic.getAttribute('data-lucide') : 'circle') + '"></i><span>' + escapeHtml(SH[L()][v] || (lab ? lab.textContent : v)) + '</span>';
-        b.addEventListener('click', () => { const s = document.querySelector('.nav-btn[data-view="' + v + '"]'); if (s) s.click(); else goToView(v); });
-        bar.appendChild(b);
-      });
-      const m = document.createElement('button'); m.type = 'button'; m.dataset.bview = '_more';
-      m.innerHTML = '<i data-lucide="menu"></i><span>' + escapeHtml(tx('more')) + '</span>'; m.addEventListener('click', () => { const mb = document.getElementById('menu-btn'); if (mb) mb.click(); });
-      bar.appendChild(m); if (window.lucide) lucide.createIcons();
+    d.innerHTML = (seal ? '<img class="greet-seal" alt="" src="' + seal + '">' : '') + '<div class="greet-eyebrow">' + escapeHtml(g) + ' · ' + escapeHtml(tx(a.role)) + '</div><div class="greet-name">' + escapeHtml(name) + '</div><div class="greet-sub">' + escapeHtml(line) + '</div>' + (heat ? '<span class="greet-chip">' + escapeHtml(tx('heat')) + '</span>' : '');
+    const ex = document.createElement('div'); ex.id = 'home-extra';
+    let html = '';
+    if (a.role === 'student' && me && me.classId) {
+      const list = todayClasses(me);
+      html += '<div class="home-card"><div class="home-h">' + escapeHtml(tx('today')) + '</div>' + (list.length ? list.map(o => '<div class="home-row"><span class="home-time">' + hm(o.e.start) + '<br><i>' + hm(o.e.end) + '</i></span><span class="home-main"><b>' + escapeHtml(o.e.subject || '') + '</b><small>' + escapeHtml(o.t.name || '') + '</small></span></div>').join('') : '<p class="home-empty">' + escapeHtml(tx('none')) + '</p>') + '</div>';
     }
-    const cur = (document.querySelector('.view-section.active') || {}).dataset;
-    bar.querySelectorAll('button[data-bview]').forEach(b => b.classList.toggle('on', !!cur && b.dataset.bview === cur.view));
+    const tiles = (TILES[a.role] || []).filter(x => { const b = document.querySelector('.nav-btn[data-view="' + x[0] + '"]'); return b && !b.classList.contains('hidden') && !(a.role === 'student' && x[0] === 'attendance'); });
+    if (tiles.length) html += '<div class="home-h home-h2">' + escapeHtml(tx('quick')) + '</div><div class="home-tiles">' + tiles.map(x => { const f = lang === 'fil' ? FIL[x[3]] : null; return '<button type="button" class="home-tile" data-go="' + x[0] + '"><span class="home-ic"><i data-lucide="' + (ICONS[x[0]] || 'circle') + '"></i></span><span class="home-t">' + escapeHtml(f ? f[0] : x[1]) + '</span><span class="home-d">' + escapeHtml(f ? f[1] : x[2]) + '</span></button>'; }).join('') + '</div>';
+    ex.innerHTML = html;
+    sec.insertBefore(ex, sec.firstChild); sec.insertBefore(d, sec.firstChild);
+    ex.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => { const s = document.querySelector('.nav-btn[data-view="' + b.dataset.go + '"]'); if (s) s.click(); else goToView(b.dataset.go); }));
+    if (window.lucide) lucide.createIcons();
   }
+  const bn = document.getElementById('bnav'); if (bn) bn.remove();
   document.querySelectorAll('#screen-login .max-w-md').forEach(c => { if (!c.querySelector('#login-foot')) { const f = document.createElement('p'); f.id = 'login-foot'; f.textContent = '© ' + new Date().getFullYear() + ' San Juan Baño High School · Arayat, Pampanga'; c.appendChild(f); } });
   const orig = goToView;
-  window.goToView = goToView = function (v) { orig(v); try { greet(); tabs(); } catch (e) {} };
-  document.addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-lang-set]')) setTimeout(() => { try { greet(); tabs(); } catch (x) {} }, 50); });
+  window.goToView = goToView = function (v) { orig(v); try { home(); } catch (e) {} };
+  document.addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-lang-set]')) setTimeout(() => { try { home(); } catch (x) {} }, 50); });
 })();
 document.addEventListener('DOMContentLoaded', init);
 </script>
