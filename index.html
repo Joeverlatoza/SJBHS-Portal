@@ -276,6 +276,7 @@ html[data-font="easy"] .view-section h2, html[data-font="easy"] #page-title, htm
 .home-tile:hover::after { color: var(--maroon); transform: translateX(3px); }
 /* faint school seal on the badge and behind the learning area */
 #print-card, #sc-card { position: relative; overflow: hidden; }
+#print-card, #sc-card { overflow: hidden; }
 #print-card::before, #sc-card::before { content: ""; position: absolute; right: -34px; top: 50%; width: 210px; height: 210px; margin-top: -105px; background: var(--seal, none) center / contain no-repeat; opacity: .14; pointer-events: none; z-index: 0; }
 #print-card > *, #sc-card > * { position: relative; z-index: 1; }
 #app header { position: relative; z-index: 2; }
@@ -11470,7 +11471,13 @@ function init() {
     (typeof adProg === 'function' ? (adProg().people || []) : []).forEach(t => (t.schedule || []).forEach(e => { if (e.day === day && !e.coverOf && (e.classIds || []).includes(s.classId) && termOk(e) && !out.some(o => o.e.start === e.start && o.e.subject === e.subject)) out.push({ e, t }); }));
     return out.sort((a, b) => String(a.e.start).localeCompare(String(b.e.start)));
   }
-  function seal() { const u = (document.querySelector('.app-seal') || {}).src; if (u && document.documentElement.dataset.seal !== '1') { document.documentElement.style.setProperty('--seal', 'url("' + u + '")'); document.documentElement.dataset.seal = '1'; } }
+  function seal() {
+    const el = document.querySelector('.app-seal'), u = el && el.src; if (!u || document.documentElement.dataset.seal === '1') return;
+    document.documentElement.dataset.seal = '1';
+    const set = v => document.documentElement.style.setProperty('--seal', 'url("' + v + '")');
+    const go = () => { try { const n = Math.min(el.naturalWidth || 300, 400), c = document.createElement('canvas'); c.width = c.height = n; const x = c.getContext('2d'); x.beginPath(); x.arc(n / 2, n / 2, n / 2 - 1, 0, 7); x.clip(); x.drawImage(el, 0, 0, n, n); set(c.toDataURL('image/png')); } catch (e) { set(u); } };
+    if (el.complete && el.naturalWidth) go(); else { set(u); el.addEventListener('load', go, { once: true }); }
+  }
   function home() {
     seal();
     const a = DB && DB.auth; const old = document.getElementById('greet-card'); if (old) old.remove(); const oq = document.getElementById('home-extra'); if (oq) oq.remove();
