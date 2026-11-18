@@ -278,7 +278,8 @@ html[data-font="easy"] .view-section h2, html[data-font="easy"] #page-title, htm
 #print-card, #sc-card { position: relative; overflow: hidden; }
 #print-card::before, #sc-card::before { content: ""; position: absolute; right: -34px; top: 50%; width: 210px; height: 210px; margin-top: -105px; background: var(--seal, none) center / contain no-repeat; opacity: .14; pointer-events: none; z-index: 0; }
 #print-card > *, #sc-card > * { position: relative; z-index: 1; }
-#app header, #app aside { position: relative; z-index: 2; }
+#app header { position: relative; z-index: 2; }
+#app aside.fixed { position: fixed !important; z-index: 50 !important; }
 .view-section[data-view="learning"].active::before { content: ""; position: fixed; inset: 0; background: var(--seal, none) center 52% / min(78vw, 460px) no-repeat; opacity: .07; pointer-events: none; z-index: 0; }
 .dark .view-section[data-view="learning"].active::before { opacity: .09; }
 .view-section[data-view="learning"] > * { position: relative; z-index: 1; }
