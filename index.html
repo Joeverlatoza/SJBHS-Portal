@@ -406,7 +406,8 @@ html :is(#screen-login .bg-white.rounded-xl, #screen-start [id^="start-step"]) [
 #start-step-role button i, #start-step-role button svg { color: #fff !important; stroke: #fff !important; }
 #start-step-role button:not([data-start-role]):last-child { background: transparent !important; border-color: transparent !important; color: #f3dc8a !important; }
 #screen-login .bg-white.rounded-xl [data-lang-set] { color: rgba(255,255,255,.85) !important; }
-#screen-login .bg-white.rounded-xl [data-lang-set].bg-white, #screen-login .bg-white.rounded-xl [data-lang-set][class*="shadow"] { color: #4a121c !important; }
+html:not(.dark) #screen-login .bg-white.rounded-xl [data-lang-set].bg-white, html:not(.dark) #screen-login .bg-white.rounded-xl [data-lang-set][class*="shadow"] { color: #4a121c !important; }
+html.dark #screen-login .bg-white.rounded-xl [data-lang-set] { color: #fff !important; }
 </style>
 </head>
 <body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 antialiased">
@@ -11638,7 +11639,8 @@ function init() {
     ['screen-start', 'screen-login'].forEach(id => { const el = document.getElementById(id); if (!el) return; el.style.transform = 'translateZ(0)'; });
     requestAnimationFrame(() => requestAnimationFrame(() => { ['screen-start', 'screen-login'].forEach(id => { const el = document.getElementById(id); if (el) el.style.transform = ''; }); }));
   }
-  function sync() { if (visible()) { show(); if (!t) t = setInterval(tick, 8000); } repaint(); }
+  const last = {};
+  function sync() { const ids = ['screen-start', 'screen-login']; let changed = false; ids.forEach(id => { const el = document.getElementById(id); const d = el ? el.style.display : ''; if (last[id] !== d) { last[id] = d; changed = true; } }); if (!changed) return; if (visible()) { show(); if (!t) t = setInterval(tick, 8000); } repaint(); }
   const obs = new MutationObserver(sync);
   document.addEventListener('DOMContentLoaded', () => { ['screen-start', 'screen-login'].forEach(id => { const el = document.getElementById(id); if (el) obs.observe(el, { attributes: true, attributeFilter: ['style'] }); }); sync(); });
 })();
